@@ -4,6 +4,7 @@ import { type } from "arktype";
 import { expect, test } from "vitest";
 import { isolatedDatabases } from "../support/databases.ts";
 import { startNodeProcess } from "../support/process.ts";
+import { contractAt, compareResponse } from "../contracts/support.ts";
 
 const entrypoint = fileURLToPath(
   new URL("../../apps/paybridge/server.ts", import.meta.url),
@@ -93,6 +94,13 @@ test("a failure after creation writes rolls back payment, history, and key toget
     const { url } = ready.assert(await server.message());
     const failed = await create(url);
     expect(failed.status).toBe(500);
+    await compareResponse({
+      contract: await contractAt(url),
+      path: "/v1/payment-intents",
+      method: "post",
+      response: failed.clone(),
+      status: 500,
+    });
     expect(await failed.json()).toMatchObject({
       error: { code: "internal_error" },
     });
@@ -134,12 +142,21 @@ test("writer timeout is bounded and a killed precommit command leaves its key re
     expect(await held.message()).toEqual({ kind: "before-commit" });
     const started = Date.now();
     const busy = await create(otherUrl);
+    const busyResponse = busy.clone();
     expect(busy.status).toBe(503);
     expect(busy.headers.get("retry-after")).toBe("1");
     expect(await busy.json()).toMatchObject({
       error: { code: "temporarily_unavailable" },
     });
     expect(Date.now() - started).toBeLessThan(8000);
+    await compareResponse({
+      contract: await contractAt(otherUrl),
+      path: "/v1/payment-intents",
+      method: "post",
+      response: busyResponse,
+      status: 503,
+      headers: ["cache-control", "x-content-type-options", "retry-after"],
+    });
     await held.stop();
     expect(await lost).toBe("connection-lost");
     expect(retainedCounts(files.paybridge)).toEqual({

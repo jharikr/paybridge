@@ -164,7 +164,7 @@ export async function registerWebhooks({
               },
             },
             ...Object.fromEntries(
-              [400, 401, 409, 413, 415, 500, 503].map((status) => [
+              [400, 401, 409, 413, 414, 415, 500, 503].map((status) => [
                 status,
                 {
                   ...errorResponse.toJsonSchema(),

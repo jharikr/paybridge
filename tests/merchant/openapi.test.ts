@@ -3,6 +3,7 @@ import { type } from "arktype";
 import { expect, test } from "vitest";
 import { isolatedDatabases } from "../support/databases.ts";
 import { journey } from "../provider/support.ts";
+import { compareResponse } from "../contracts/support.ts";
 import {
   launchMerchant,
   orderBody,
@@ -178,6 +179,13 @@ test("merchant OpenAPI matches real order and confirmation requests and acknowle
       description: "x".repeat(20_000),
     });
     expect(large.status).toBe(413);
+    await compareResponse({
+      contract: document,
+      path: "/{merchantFixture}/orders",
+      method: "post",
+      response: large.clone(),
+      status: 413,
+    });
     expect(orderOperation.responses["413"]).toBeDefined();
     verifyResponseHeaders({
       documented: orderOperation.responses["413"],

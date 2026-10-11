@@ -1,0 +1,742 @@
+[
+  {
+    "id": "table.payment_attempts",
+    "label": "Create table payment_attempts",
+    "summary": "Creates table payment_attempts with required columns",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "table",
+        "name": "payment_attempts"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"payment_attempts\" does not exist",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "table",
+          "payment_attempts"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"payment_attempts\"",
+        "sql": "CREATE TABLE \"payment_attempts\" (\n  \"attempt_number\" INTEGER NOT NULL,\n  \"created_at\" TEXT NOT NULL,\n  \"failure_code\" TEXT,\n  \"failure_message\" TEXT,\n  \"id\" TEXT NOT NULL,\n  \"mock_payment_method_ref\" TEXT NOT NULL,\n  \"payment_intent_id\" TEXT NOT NULL,\n  \"provider\" TEXT NOT NULL,\n  \"provider_account_ref\" TEXT NOT NULL,\n  \"provider_financial_result\" TEXT,\n  \"provider_host_reference\" TEXT,\n  \"provider_operation_result\" TEXT,\n  \"provider_service_result\" TEXT,\n  \"provider_transaction_id\" TEXT NOT NULL,\n  \"status\" TEXT NOT NULL,\n  \"updated_at\" TEXT NOT NULL,\n  PRIMARY KEY (\"id\"),\n  UNIQUE (\"payment_intent_id\", \"attempt_number\"),\n  UNIQUE (\"provider\", \"provider_transaction_id\"),\n  FOREIGN KEY (\"payment_intent_id\") REFERENCES \"payment_intents\" (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"payment_attempts\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "table",
+          "payment_attempts"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.provider_outbox",
+    "label": "Create table provider_outbox",
+    "summary": "Creates table provider_outbox with required columns",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "table",
+        "name": "provider_outbox"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"provider_outbox\" does not exist",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "table",
+          "provider_outbox"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"provider_outbox\"",
+        "sql": "CREATE TABLE \"provider_outbox\" (\n  \"attempt_count\" INTEGER NOT NULL,\n  \"claim_token\" TEXT,\n  \"completed_at\" TEXT,\n  \"created_at\" TEXT NOT NULL,\n  \"id\" TEXT NOT NULL,\n  \"last_error\" TEXT,\n  \"lease_expires_at\" TEXT,\n  \"locked_by\" TEXT,\n  \"next_attempt_at\" TEXT NOT NULL,\n  \"payment_attempt_id\" TEXT NOT NULL,\n  \"status\" TEXT NOT NULL,\n  \"updated_at\" TEXT NOT NULL,\n  PRIMARY KEY (\"id\"),\n  UNIQUE (\"payment_attempt_id\"),\n  FOREIGN KEY (\"payment_attempt_id\") REFERENCES \"payment_attempts\" (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"provider_outbox\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "table",
+          "provider_outbox"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.webhook_outbox",
+    "label": "Create table webhook_outbox",
+    "summary": "Creates table webhook_outbox with required columns",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "table",
+        "name": "webhook_outbox"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"webhook_outbox\" does not exist",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "table",
+          "webhook_outbox"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"webhook_outbox\"",
+        "sql": "CREATE TABLE \"webhook_outbox\" (\n  \"attempt_count\" INTEGER NOT NULL,\n  \"claim_token\" TEXT,\n  \"created_at\" TEXT NOT NULL,\n  \"delivered_at\" TEXT,\n  \"event_type\" TEXT NOT NULL,\n  \"id\" TEXT NOT NULL,\n  \"last_error\" TEXT,\n  \"lease_expires_at\" TEXT,\n  \"locked_by\" TEXT,\n  \"merchant_id\" TEXT NOT NULL,\n  \"next_attempt_at\" TEXT NOT NULL,\n  \"payload\" TEXT NOT NULL,\n  \"payment_event_id\" TEXT NOT NULL,\n  \"payment_intent_id\" TEXT NOT NULL,\n  \"status\" TEXT NOT NULL,\n  PRIMARY KEY (\"id\"),\n  UNIQUE (\"payment_event_id\"),\n  FOREIGN KEY (\"merchant_id\") REFERENCES \"merchants\" (\"id\"),\n  FOREIGN KEY (\"payment_intent_id\") REFERENCES \"payment_intents\" (\"id\"),\n  FOREIGN KEY (\"payment_event_id\") REFERENCES \"payment_events\" (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"webhook_outbox\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "table",
+          "webhook_outbox"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.payment_attempts.payment_attempts_payment_intent_id_idx_2dc6a9d2",
+    "label": "Create index payment_attempts_payment_intent_id_idx_2dc6a9d2 on payment_attempts",
+    "summary": "Creates index payment_attempts_payment_intent_id_idx_2dc6a9d2 on payment_attempts",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "index",
+        "name": "payment_attempts_payment_intent_id_idx_2dc6a9d2",
+        "table": "payment_attempts"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"payment_attempts_payment_intent_id_idx_2dc6a9d2\" is missing",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "payment_attempts_payment_intent_id_idx_2dc6a9d2"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"payment_attempts_payment_intent_id_idx_2dc6a9d2\"",
+        "sql": "CREATE INDEX \"payment_attempts_payment_intent_id_idx_2dc6a9d2\" ON \"payment_attempts\" (\"payment_intent_id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"payment_attempts_payment_intent_id_idx_2dc6a9d2\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "payment_attempts_payment_intent_id_idx_2dc6a9d2"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.webhook_outbox.webhook_outbox_merchant_id_idx_92be5ce7",
+    "label": "Create index webhook_outbox_merchant_id_idx_92be5ce7 on webhook_outbox",
+    "summary": "Creates index webhook_outbox_merchant_id_idx_92be5ce7 on webhook_outbox",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "index",
+        "name": "webhook_outbox_merchant_id_idx_92be5ce7",
+        "table": "webhook_outbox"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"webhook_outbox_merchant_id_idx_92be5ce7\" is missing",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "webhook_outbox_merchant_id_idx_92be5ce7"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"webhook_outbox_merchant_id_idx_92be5ce7\"",
+        "sql": "CREATE INDEX \"webhook_outbox_merchant_id_idx_92be5ce7\" ON \"webhook_outbox\" (\"merchant_id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"webhook_outbox_merchant_id_idx_92be5ce7\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "webhook_outbox_merchant_id_idx_92be5ce7"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.webhook_outbox.webhook_outbox_payment_intent_id_idx_2dc6a9d2",
+    "label": "Create index webhook_outbox_payment_intent_id_idx_2dc6a9d2 on webhook_outbox",
+    "summary": "Creates index webhook_outbox_payment_intent_id_idx_2dc6a9d2 on webhook_outbox",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "index",
+        "name": "webhook_outbox_payment_intent_id_idx_2dc6a9d2",
+        "table": "webhook_outbox"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"webhook_outbox_payment_intent_id_idx_2dc6a9d2\" is missing",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "webhook_outbox_payment_intent_id_idx_2dc6a9d2"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"webhook_outbox_payment_intent_id_idx_2dc6a9d2\"",
+        "sql": "CREATE INDEX \"webhook_outbox_payment_intent_id_idx_2dc6a9d2\" ON \"webhook_outbox\" (\"payment_intent_id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"webhook_outbox_payment_intent_id_idx_2dc6a9d2\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "webhook_outbox_payment_intent_id_idx_2dc6a9d2"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.one_unresolved_attempt",
+    "label": "Create one_unresolved_attempt",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create one_unresolved_attempt",
+        "sql": "CREATE UNIQUE INDEX one_unresolved_attempt ON payment_attempts(payment_intent_id) WHERE status IN ('PROCESSING', 'UNKNOWN')",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify one_unresolved_attempt",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = ? AND name = ?",
+        "params": [
+          "index",
+          "one_unresolved_attempt"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "trigger.attempt_identity_fixed",
+    "label": "Create attempt_identity_fixed",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create attempt_identity_fixed",
+        "sql": "CREATE TRIGGER attempt_identity_fixed BEFORE UPDATE ON payment_attempts WHEN NEW.id IS NOT OLD.id OR NEW.payment_intent_id IS NOT OLD.payment_intent_id OR NEW.attempt_number IS NOT OLD.attempt_number OR NEW.provider IS NOT OLD.provider OR NEW.provider_account_ref IS NOT OLD.provider_account_ref OR NEW.provider_transaction_id IS NOT OLD.provider_transaction_id OR NEW.mock_payment_method_ref IS NOT OLD.mock_payment_method_ref OR NEW.created_at IS NOT OLD.created_at BEGIN SELECT RAISE(ABORT, 'attempt_identity_fixed'); END",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify attempt_identity_fixed",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = ? AND name = ?",
+        "params": [
+          "trigger",
+          "attempt_identity_fixed"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "trigger.attempt_input_valid",
+    "label": "Create attempt_input_valid",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create attempt_input_valid",
+        "sql": "CREATE TRIGGER attempt_input_valid BEFORE INSERT ON payment_attempts WHEN NEW.provider <> '4cs' OR typeof(NEW.attempt_number) <> 'integer' OR NEW.attempt_number < 1 OR length(NEW.provider_transaction_id) NOT BETWEEN 1 AND 16 OR NEW.provider_transaction_id GLOB '*[^A-Za-z0-9]*' OR NOT EXISTS (SELECT 1 FROM payment_intents p JOIN merchants m ON m.id = p.merchant_id WHERE p.id = NEW.payment_intent_id AND m.provider_account_ref = NEW.provider_account_ref) BEGIN SELECT RAISE(ABORT, 'attempt_input_valid'); END",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify attempt_input_valid",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = ? AND name = ?",
+        "params": [
+          "trigger",
+          "attempt_input_valid"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "trigger.attempt_status_insert",
+    "label": "Create attempt_status_insert",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create attempt_status_insert",
+        "sql": "CREATE TRIGGER attempt_status_insert BEFORE INSERT ON payment_attempts WHEN NEW.status NOT IN ('PROCESSING', 'SUCCEEDED', 'FAILED', 'UNKNOWN') BEGIN SELECT RAISE(ABORT, 'attempt_status_insert'); END",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify attempt_status_insert",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = ? AND name = ?",
+        "params": [
+          "trigger",
+          "attempt_status_insert"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "trigger.attempt_status_update",
+    "label": "Create attempt_status_update",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create attempt_status_update",
+        "sql": "CREATE TRIGGER attempt_status_update BEFORE UPDATE ON payment_attempts WHEN NEW.status NOT IN ('PROCESSING', 'SUCCEEDED', 'FAILED', 'UNKNOWN') BEGIN SELECT RAISE(ABORT, 'attempt_status_update'); END",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify attempt_status_update",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = ? AND name = ?",
+        "params": [
+          "trigger",
+          "attempt_status_update"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "trigger.attempt_transition",
+    "label": "Create attempt_transition",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create attempt_transition",
+        "sql": "CREATE TRIGGER attempt_transition BEFORE UPDATE ON payment_attempts WHEN NEW.status IS NOT OLD.status AND NOT ((OLD.status = 'PROCESSING' AND NEW.status IN ('SUCCEEDED', 'FAILED', 'UNKNOWN')) OR (OLD.status = 'UNKNOWN' AND NEW.status IN ('SUCCEEDED', 'FAILED'))) BEGIN SELECT RAISE(ABORT, 'attempt_transition'); END",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify attempt_transition",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = ? AND name = ?",
+        "params": [
+          "trigger",
+          "attempt_transition"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "trigger.payment_transition",
+    "label": "Create payment_transition",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create payment_transition",
+        "sql": "CREATE TRIGGER payment_transition BEFORE UPDATE ON payment_intents WHEN NEW.status IS NOT OLD.status AND NOT ((OLD.status = 'PENDING' AND NEW.status IN ('PROCESSING', 'CANCELLED')) OR (OLD.status = 'PROCESSING' AND NEW.status IN ('SUCCEEDED', 'FAILED', 'UNKNOWN')) OR (OLD.status = 'UNKNOWN' AND NEW.status IN ('SUCCEEDED', 'FAILED')) OR (OLD.status = 'FAILED' AND NEW.status = 'PROCESSING')) BEGIN SELECT RAISE(ABORT, 'payment_transition'); END",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify payment_transition",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = ? AND name = ?",
+        "params": [
+          "trigger",
+          "payment_transition"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "trigger.command_attempt_matches",
+    "label": "Create command_attempt_matches",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create command_attempt_matches",
+        "sql": "CREATE TRIGGER command_attempt_matches BEFORE UPDATE ON idempotency_keys WHEN NEW.payment_attempt_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM payment_attempts WHERE id = NEW.payment_attempt_id AND payment_intent_id = NEW.resource_id) BEGIN SELECT RAISE(ABORT, 'command_attempt_matches'); END",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify command_attempt_matches",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = ? AND name = ?",
+        "params": [
+          "trigger",
+          "command_attempt_matches"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "trigger.event_attempt_matches",
+    "label": "Create event_attempt_matches",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create event_attempt_matches",
+        "sql": "CREATE TRIGGER event_attempt_matches BEFORE INSERT ON payment_events WHEN NEW.payment_attempt_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM payment_attempts WHERE id = NEW.payment_attempt_id AND payment_intent_id = NEW.payment_intent_id) BEGIN SELECT RAISE(ABORT, 'event_attempt_matches'); END",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify event_attempt_matches",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = ? AND name = ?",
+        "params": [
+          "trigger",
+          "event_attempt_matches"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "trigger.provider_work_identity_fixed",
+    "label": "Create provider_work_identity_fixed",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create provider_work_identity_fixed",
+        "sql": "CREATE TRIGGER provider_work_identity_fixed BEFORE UPDATE ON provider_outbox WHEN NEW.id IS NOT OLD.id OR NEW.payment_attempt_id IS NOT OLD.payment_attempt_id OR NEW.created_at IS NOT OLD.created_at BEGIN SELECT RAISE(ABORT, 'provider_work_identity_fixed'); END",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify provider_work_identity_fixed",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = ? AND name = ?",
+        "params": [
+          "trigger",
+          "provider_work_identity_fixed"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "trigger.webhook_identity_fixed",
+    "label": "Create webhook_identity_fixed",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create webhook_identity_fixed",
+        "sql": "CREATE TRIGGER webhook_identity_fixed BEFORE UPDATE ON webhook_outbox WHEN NEW.id IS NOT OLD.id OR NEW.payment_event_id IS NOT OLD.payment_event_id OR NEW.merchant_id IS NOT OLD.merchant_id OR NEW.payment_intent_id IS NOT OLD.payment_intent_id OR NEW.event_type IS NOT OLD.event_type OR NEW.payload IS NOT OLD.payload OR NEW.created_at IS NOT OLD.created_at BEGIN SELECT RAISE(ABORT, 'webhook_identity_fixed'); END",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify webhook_identity_fixed",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = ? AND name = ?",
+        "params": [
+          "trigger",
+          "webhook_identity_fixed"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "trigger.webhook_owner_matches",
+    "label": "Create webhook_owner_matches",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create webhook_owner_matches",
+        "sql": "CREATE TRIGGER webhook_owner_matches BEFORE INSERT ON webhook_outbox WHEN NOT EXISTS (SELECT 1 FROM payment_events e JOIN payment_intents p ON p.id = e.payment_intent_id WHERE e.id = NEW.payment_event_id AND e.payment_intent_id = NEW.payment_intent_id AND p.merchant_id = NEW.merchant_id) BEGIN SELECT RAISE(ABORT, 'webhook_owner_matches'); END",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify webhook_owner_matches",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = ? AND name = ?",
+        "params": [
+          "trigger",
+          "webhook_owner_matches"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "trigger.provider_outbox_state_insert",
+    "label": "Create provider_outbox_state_insert",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create provider_outbox_state_insert",
+        "sql": "CREATE TRIGGER provider_outbox_state_insert BEFORE INSERT ON provider_outbox WHEN NEW.status NOT IN ('PENDING', 'PROCESSING', 'COMPLETED') OR typeof(NEW.attempt_count) <> 'integer' OR NEW.attempt_count < 0 OR (NEW.status = 'PROCESSING' AND (NEW.claim_token IS NULL OR NEW.locked_by IS NULL OR NEW.lease_expires_at IS NULL)) OR (NEW.status <> 'PROCESSING' AND (NEW.claim_token IS NOT NULL OR NEW.locked_by IS NOT NULL OR NEW.lease_expires_at IS NOT NULL)) OR (NEW.status = 'COMPLETED' AND NEW.completed_at IS NULL) OR (NEW.status <> 'COMPLETED' AND NEW.completed_at IS NOT NULL) BEGIN SELECT RAISE(ABORT, 'provider_outbox_state_insert'); END",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify provider_outbox_state_insert",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = ? AND name = ?",
+        "params": [
+          "trigger",
+          "provider_outbox_state_insert"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "trigger.provider_outbox_state_update",
+    "label": "Create provider_outbox_state_update",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create provider_outbox_state_update",
+        "sql": "CREATE TRIGGER provider_outbox_state_update BEFORE UPDATE ON provider_outbox WHEN NEW.status NOT IN ('PENDING', 'PROCESSING', 'COMPLETED') OR typeof(NEW.attempt_count) <> 'integer' OR NEW.attempt_count < 0 OR (NEW.status = 'PROCESSING' AND (NEW.claim_token IS NULL OR NEW.locked_by IS NULL OR NEW.lease_expires_at IS NULL)) OR (NEW.status <> 'PROCESSING' AND (NEW.claim_token IS NOT NULL OR NEW.locked_by IS NOT NULL OR NEW.lease_expires_at IS NOT NULL)) OR (NEW.status = 'COMPLETED' AND NEW.completed_at IS NULL) OR (NEW.status <> 'COMPLETED' AND NEW.completed_at IS NOT NULL) BEGIN SELECT RAISE(ABORT, 'provider_outbox_state_update'); END",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify provider_outbox_state_update",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = ? AND name = ?",
+        "params": [
+          "trigger",
+          "provider_outbox_state_update"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "trigger.webhook_outbox_state_insert",
+    "label": "Create webhook_outbox_state_insert",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create webhook_outbox_state_insert",
+        "sql": "CREATE TRIGGER webhook_outbox_state_insert BEFORE INSERT ON webhook_outbox WHEN NEW.status NOT IN ('PENDING', 'PROCESSING', 'DELIVERED') OR typeof(NEW.attempt_count) <> 'integer' OR NEW.attempt_count < 0 OR (NEW.status = 'PROCESSING' AND (NEW.claim_token IS NULL OR NEW.locked_by IS NULL OR NEW.lease_expires_at IS NULL)) OR (NEW.status <> 'PROCESSING' AND (NEW.claim_token IS NOT NULL OR NEW.locked_by IS NOT NULL OR NEW.lease_expires_at IS NOT NULL)) OR (NEW.status = 'DELIVERED' AND NEW.delivered_at IS NULL) OR (NEW.status <> 'DELIVERED' AND NEW.delivered_at IS NOT NULL) BEGIN SELECT RAISE(ABORT, 'webhook_outbox_state_insert'); END",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify webhook_outbox_state_insert",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = ? AND name = ?",
+        "params": [
+          "trigger",
+          "webhook_outbox_state_insert"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "trigger.webhook_outbox_state_update",
+    "label": "Create webhook_outbox_state_update",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create webhook_outbox_state_update",
+        "sql": "CREATE TRIGGER webhook_outbox_state_update BEFORE UPDATE ON webhook_outbox WHEN NEW.status NOT IN ('PENDING', 'PROCESSING', 'DELIVERED') OR typeof(NEW.attempt_count) <> 'integer' OR NEW.attempt_count < 0 OR (NEW.status = 'PROCESSING' AND (NEW.claim_token IS NULL OR NEW.locked_by IS NULL OR NEW.lease_expires_at IS NULL)) OR (NEW.status <> 'PROCESSING' AND (NEW.claim_token IS NOT NULL OR NEW.locked_by IS NOT NULL OR NEW.lease_expires_at IS NOT NULL)) OR (NEW.status = 'DELIVERED' AND NEW.delivered_at IS NULL) OR (NEW.status <> 'DELIVERED' AND NEW.delivered_at IS NOT NULL) BEGIN SELECT RAISE(ABORT, 'webhook_outbox_state_update'); END",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify webhook_outbox_state_update",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = ? AND name = ?",
+        "params": [
+          "trigger",
+          "webhook_outbox_state_update"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "trigger.payment_attempts_retained",
+    "label": "Create payment_attempts_retained",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create payment_attempts_retained",
+        "sql": "CREATE TRIGGER payment_attempts_retained BEFORE DELETE ON payment_attempts  BEGIN SELECT RAISE(ABORT, 'payment_attempts_retained'); END",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify payment_attempts_retained",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = ? AND name = ?",
+        "params": [
+          "trigger",
+          "payment_attempts_retained"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "trigger.provider_outbox_retained",
+    "label": "Create provider_outbox_retained",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create provider_outbox_retained",
+        "sql": "CREATE TRIGGER provider_outbox_retained BEFORE DELETE ON provider_outbox  BEGIN SELECT RAISE(ABORT, 'provider_outbox_retained'); END",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify provider_outbox_retained",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = ? AND name = ?",
+        "params": [
+          "trigger",
+          "provider_outbox_retained"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "trigger.webhook_outbox_retained",
+    "label": "Create webhook_outbox_retained",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create webhook_outbox_retained",
+        "sql": "CREATE TRIGGER webhook_outbox_retained BEFORE DELETE ON webhook_outbox  BEGIN SELECT RAISE(ABORT, 'webhook_outbox_retained'); END",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify webhook_outbox_retained",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = ? AND name = ?",
+        "params": [
+          "trigger",
+          "webhook_outbox_retained"
+        ]
+      }
+    ]
+  }
+]

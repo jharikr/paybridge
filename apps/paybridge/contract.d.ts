@@ -17,7 +17,7 @@ import type {
 } from '@prisma/orm-sqlite/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'4f8c8ff366a53054d16a2ef113d26f49096154023650a816fb53500d285aaec8'>;
+  StorageHashBase<'668fba7bd586d6ca897717a237ca3168f1a4d85aeace6872024ae7d849d6564c'>;
 export type ExecutionHash = ExecutionHashBase<string>;
 export type ProfileHash =
   ProfileHashBase<'260b8608d1aacaf1f690779a6cff39a12947c599597c5ba464ca75b9e775df53'>;
@@ -157,6 +157,24 @@ export type FieldOutputTypes = {
       readonly webhookSecret: CodecTypes['sqlite/text@1']['output'];
       readonly webhookUrl: CodecTypes['sqlite/text@1']['output'];
     };
+    readonly PaymentAttempt: {
+      readonly attemptNumber: CodecTypes['sqlite/integer@1']['output'];
+      readonly createdAt: CodecTypes['sqlite/text@1']['output'];
+      readonly failureCode: CodecTypes['sqlite/text@1']['output'] | null;
+      readonly failureMessage: CodecTypes['sqlite/text@1']['output'] | null;
+      readonly id: CodecTypes['sqlite/text@1']['output'];
+      readonly mockPaymentMethodRef: CodecTypes['sqlite/text@1']['output'];
+      readonly paymentIntentId: CodecTypes['sqlite/text@1']['output'];
+      readonly provider: CodecTypes['sqlite/text@1']['output'];
+      readonly providerAccountRef: CodecTypes['sqlite/text@1']['output'];
+      readonly providerFinancialResult: CodecTypes['sqlite/text@1']['output'] | null;
+      readonly providerHostReference: CodecTypes['sqlite/text@1']['output'] | null;
+      readonly providerOperationResult: CodecTypes['sqlite/text@1']['output'] | null;
+      readonly providerServiceResult: CodecTypes['sqlite/text@1']['output'] | null;
+      readonly providerTransactionId: CodecTypes['sqlite/text@1']['output'];
+      readonly status: CodecTypes['sqlite/text@1']['output'];
+      readonly updatedAt: CodecTypes['sqlite/text@1']['output'];
+    };
     readonly PaymentEvent: {
       readonly actorId: CodecTypes['sqlite/text@1']['output'];
       readonly actorType: CodecTypes['sqlite/text@1']['output'];
@@ -184,6 +202,37 @@ export type FieldOutputTypes = {
       readonly revision: CodecTypes['sqlite/integer@1']['output'];
       readonly status: CodecTypes['sqlite/text@1']['output'];
       readonly updatedAt: CodecTypes['sqlite/text@1']['output'];
+    };
+    readonly ProviderOutbox: {
+      readonly attemptCount: CodecTypes['sqlite/integer@1']['output'];
+      readonly claimToken: CodecTypes['sqlite/text@1']['output'] | null;
+      readonly completedAt: CodecTypes['sqlite/text@1']['output'] | null;
+      readonly createdAt: CodecTypes['sqlite/text@1']['output'];
+      readonly id: CodecTypes['sqlite/text@1']['output'];
+      readonly lastError: CodecTypes['sqlite/text@1']['output'] | null;
+      readonly leaseExpiresAt: CodecTypes['sqlite/text@1']['output'] | null;
+      readonly lockedBy: CodecTypes['sqlite/text@1']['output'] | null;
+      readonly nextAttemptAt: CodecTypes['sqlite/text@1']['output'];
+      readonly paymentAttemptId: CodecTypes['sqlite/text@1']['output'];
+      readonly status: CodecTypes['sqlite/text@1']['output'];
+      readonly updatedAt: CodecTypes['sqlite/text@1']['output'];
+    };
+    readonly WebhookOutbox: {
+      readonly attemptCount: CodecTypes['sqlite/integer@1']['output'];
+      readonly claimToken: CodecTypes['sqlite/text@1']['output'] | null;
+      readonly createdAt: CodecTypes['sqlite/text@1']['output'];
+      readonly deliveredAt: CodecTypes['sqlite/text@1']['output'] | null;
+      readonly eventType: CodecTypes['sqlite/text@1']['output'];
+      readonly id: CodecTypes['sqlite/text@1']['output'];
+      readonly lastError: CodecTypes['sqlite/text@1']['output'] | null;
+      readonly leaseExpiresAt: CodecTypes['sqlite/text@1']['output'] | null;
+      readonly lockedBy: CodecTypes['sqlite/text@1']['output'] | null;
+      readonly merchantId: CodecTypes['sqlite/text@1']['output'];
+      readonly nextAttemptAt: CodecTypes['sqlite/text@1']['output'];
+      readonly payload: CodecTypes['sqlite/text@1']['output'];
+      readonly paymentEventId: CodecTypes['sqlite/text@1']['output'];
+      readonly paymentIntentId: CodecTypes['sqlite/text@1']['output'];
+      readonly status: CodecTypes['sqlite/text@1']['output'];
     };
   };
 };
@@ -214,6 +263,24 @@ export type FieldInputTypes = {
       readonly webhookSecret: CodecTypes['sqlite/text@1']['input'];
       readonly webhookUrl: CodecTypes['sqlite/text@1']['input'];
     };
+    readonly PaymentAttempt: {
+      readonly attemptNumber: CodecTypes['sqlite/integer@1']['input'];
+      readonly createdAt: CodecTypes['sqlite/text@1']['input'];
+      readonly failureCode: CodecTypes['sqlite/text@1']['input'] | null;
+      readonly failureMessage: CodecTypes['sqlite/text@1']['input'] | null;
+      readonly id: CodecTypes['sqlite/text@1']['input'];
+      readonly mockPaymentMethodRef: CodecTypes['sqlite/text@1']['input'];
+      readonly paymentIntentId: CodecTypes['sqlite/text@1']['input'];
+      readonly provider: CodecTypes['sqlite/text@1']['input'];
+      readonly providerAccountRef: CodecTypes['sqlite/text@1']['input'];
+      readonly providerFinancialResult: CodecTypes['sqlite/text@1']['input'] | null;
+      readonly providerHostReference: CodecTypes['sqlite/text@1']['input'] | null;
+      readonly providerOperationResult: CodecTypes['sqlite/text@1']['input'] | null;
+      readonly providerServiceResult: CodecTypes['sqlite/text@1']['input'] | null;
+      readonly providerTransactionId: CodecTypes['sqlite/text@1']['input'];
+      readonly status: CodecTypes['sqlite/text@1']['input'];
+      readonly updatedAt: CodecTypes['sqlite/text@1']['input'];
+    };
     readonly PaymentEvent: {
       readonly actorId: CodecTypes['sqlite/text@1']['input'];
       readonly actorType: CodecTypes['sqlite/text@1']['input'];
@@ -241,6 +308,37 @@ export type FieldInputTypes = {
       readonly revision: CodecTypes['sqlite/integer@1']['input'];
       readonly status: CodecTypes['sqlite/text@1']['input'];
       readonly updatedAt: CodecTypes['sqlite/text@1']['input'];
+    };
+    readonly ProviderOutbox: {
+      readonly attemptCount: CodecTypes['sqlite/integer@1']['input'];
+      readonly claimToken: CodecTypes['sqlite/text@1']['input'] | null;
+      readonly completedAt: CodecTypes['sqlite/text@1']['input'] | null;
+      readonly createdAt: CodecTypes['sqlite/text@1']['input'];
+      readonly id: CodecTypes['sqlite/text@1']['input'];
+      readonly lastError: CodecTypes['sqlite/text@1']['input'] | null;
+      readonly leaseExpiresAt: CodecTypes['sqlite/text@1']['input'] | null;
+      readonly lockedBy: CodecTypes['sqlite/text@1']['input'] | null;
+      readonly nextAttemptAt: CodecTypes['sqlite/text@1']['input'];
+      readonly paymentAttemptId: CodecTypes['sqlite/text@1']['input'];
+      readonly status: CodecTypes['sqlite/text@1']['input'];
+      readonly updatedAt: CodecTypes['sqlite/text@1']['input'];
+    };
+    readonly WebhookOutbox: {
+      readonly attemptCount: CodecTypes['sqlite/integer@1']['input'];
+      readonly claimToken: CodecTypes['sqlite/text@1']['input'] | null;
+      readonly createdAt: CodecTypes['sqlite/text@1']['input'];
+      readonly deliveredAt: CodecTypes['sqlite/text@1']['input'] | null;
+      readonly eventType: CodecTypes['sqlite/text@1']['input'];
+      readonly id: CodecTypes['sqlite/text@1']['input'];
+      readonly lastError: CodecTypes['sqlite/text@1']['input'] | null;
+      readonly leaseExpiresAt: CodecTypes['sqlite/text@1']['input'] | null;
+      readonly lockedBy: CodecTypes['sqlite/text@1']['input'] | null;
+      readonly merchantId: CodecTypes['sqlite/text@1']['input'];
+      readonly nextAttemptAt: CodecTypes['sqlite/text@1']['input'];
+      readonly payload: CodecTypes['sqlite/text@1']['input'];
+      readonly paymentEventId: CodecTypes['sqlite/text@1']['input'];
+      readonly paymentIntentId: CodecTypes['sqlite/text@1']['input'];
+      readonly status: CodecTypes['sqlite/text@1']['input'];
     };
   };
 };
@@ -271,6 +369,24 @@ export type StorageColumnTypes = {
       readonly webhook_secret: CodecTypes['sqlite/text@1']['output'];
       readonly webhook_url: CodecTypes['sqlite/text@1']['output'];
     };
+    readonly payment_attempts: {
+      readonly attempt_number: CodecTypes['sqlite/integer@1']['output'];
+      readonly created_at: CodecTypes['sqlite/text@1']['output'];
+      readonly failure_code: CodecTypes['sqlite/text@1']['output'] | null;
+      readonly failure_message: CodecTypes['sqlite/text@1']['output'] | null;
+      readonly id: CodecTypes['sqlite/text@1']['output'];
+      readonly mock_payment_method_ref: CodecTypes['sqlite/text@1']['output'];
+      readonly payment_intent_id: CodecTypes['sqlite/text@1']['output'];
+      readonly provider: CodecTypes['sqlite/text@1']['output'];
+      readonly provider_account_ref: CodecTypes['sqlite/text@1']['output'];
+      readonly provider_financial_result: CodecTypes['sqlite/text@1']['output'] | null;
+      readonly provider_host_reference: CodecTypes['sqlite/text@1']['output'] | null;
+      readonly provider_operation_result: CodecTypes['sqlite/text@1']['output'] | null;
+      readonly provider_service_result: CodecTypes['sqlite/text@1']['output'] | null;
+      readonly provider_transaction_id: CodecTypes['sqlite/text@1']['output'];
+      readonly status: CodecTypes['sqlite/text@1']['output'];
+      readonly updated_at: CodecTypes['sqlite/text@1']['output'];
+    };
     readonly payment_events: {
       readonly actor_id: CodecTypes['sqlite/text@1']['output'];
       readonly actor_type: CodecTypes['sqlite/text@1']['output'];
@@ -298,6 +414,37 @@ export type StorageColumnTypes = {
       readonly revision: CodecTypes['sqlite/integer@1']['output'];
       readonly status: CodecTypes['sqlite/text@1']['output'];
       readonly updated_at: CodecTypes['sqlite/text@1']['output'];
+    };
+    readonly provider_outbox: {
+      readonly attempt_count: CodecTypes['sqlite/integer@1']['output'];
+      readonly claim_token: CodecTypes['sqlite/text@1']['output'] | null;
+      readonly completed_at: CodecTypes['sqlite/text@1']['output'] | null;
+      readonly created_at: CodecTypes['sqlite/text@1']['output'];
+      readonly id: CodecTypes['sqlite/text@1']['output'];
+      readonly last_error: CodecTypes['sqlite/text@1']['output'] | null;
+      readonly lease_expires_at: CodecTypes['sqlite/text@1']['output'] | null;
+      readonly locked_by: CodecTypes['sqlite/text@1']['output'] | null;
+      readonly next_attempt_at: CodecTypes['sqlite/text@1']['output'];
+      readonly payment_attempt_id: CodecTypes['sqlite/text@1']['output'];
+      readonly status: CodecTypes['sqlite/text@1']['output'];
+      readonly updated_at: CodecTypes['sqlite/text@1']['output'];
+    };
+    readonly webhook_outbox: {
+      readonly attempt_count: CodecTypes['sqlite/integer@1']['output'];
+      readonly claim_token: CodecTypes['sqlite/text@1']['output'] | null;
+      readonly created_at: CodecTypes['sqlite/text@1']['output'];
+      readonly delivered_at: CodecTypes['sqlite/text@1']['output'] | null;
+      readonly event_type: CodecTypes['sqlite/text@1']['output'];
+      readonly id: CodecTypes['sqlite/text@1']['output'];
+      readonly last_error: CodecTypes['sqlite/text@1']['output'] | null;
+      readonly lease_expires_at: CodecTypes['sqlite/text@1']['output'] | null;
+      readonly locked_by: CodecTypes['sqlite/text@1']['output'] | null;
+      readonly merchant_id: CodecTypes['sqlite/text@1']['output'];
+      readonly next_attempt_at: CodecTypes['sqlite/text@1']['output'];
+      readonly payload: CodecTypes['sqlite/text@1']['output'];
+      readonly payment_event_id: CodecTypes['sqlite/text@1']['output'];
+      readonly payment_intent_id: CodecTypes['sqlite/text@1']['output'];
+      readonly status: CodecTypes['sqlite/text@1']['output'];
     };
   };
 };
@@ -328,6 +475,24 @@ export type StorageColumnInputTypes = {
       readonly webhook_secret: CodecTypes['sqlite/text@1']['input'];
       readonly webhook_url: CodecTypes['sqlite/text@1']['input'];
     };
+    readonly payment_attempts: {
+      readonly attempt_number: CodecTypes['sqlite/integer@1']['input'];
+      readonly created_at: CodecTypes['sqlite/text@1']['input'];
+      readonly failure_code: CodecTypes['sqlite/text@1']['input'] | null;
+      readonly failure_message: CodecTypes['sqlite/text@1']['input'] | null;
+      readonly id: CodecTypes['sqlite/text@1']['input'];
+      readonly mock_payment_method_ref: CodecTypes['sqlite/text@1']['input'];
+      readonly payment_intent_id: CodecTypes['sqlite/text@1']['input'];
+      readonly provider: CodecTypes['sqlite/text@1']['input'];
+      readonly provider_account_ref: CodecTypes['sqlite/text@1']['input'];
+      readonly provider_financial_result: CodecTypes['sqlite/text@1']['input'] | null;
+      readonly provider_host_reference: CodecTypes['sqlite/text@1']['input'] | null;
+      readonly provider_operation_result: CodecTypes['sqlite/text@1']['input'] | null;
+      readonly provider_service_result: CodecTypes['sqlite/text@1']['input'] | null;
+      readonly provider_transaction_id: CodecTypes['sqlite/text@1']['input'];
+      readonly status: CodecTypes['sqlite/text@1']['input'];
+      readonly updated_at: CodecTypes['sqlite/text@1']['input'];
+    };
     readonly payment_events: {
       readonly actor_id: CodecTypes['sqlite/text@1']['input'];
       readonly actor_type: CodecTypes['sqlite/text@1']['input'];
@@ -355,6 +520,37 @@ export type StorageColumnInputTypes = {
       readonly revision: CodecTypes['sqlite/integer@1']['input'];
       readonly status: CodecTypes['sqlite/text@1']['input'];
       readonly updated_at: CodecTypes['sqlite/text@1']['input'];
+    };
+    readonly provider_outbox: {
+      readonly attempt_count: CodecTypes['sqlite/integer@1']['input'];
+      readonly claim_token: CodecTypes['sqlite/text@1']['input'] | null;
+      readonly completed_at: CodecTypes['sqlite/text@1']['input'] | null;
+      readonly created_at: CodecTypes['sqlite/text@1']['input'];
+      readonly id: CodecTypes['sqlite/text@1']['input'];
+      readonly last_error: CodecTypes['sqlite/text@1']['input'] | null;
+      readonly lease_expires_at: CodecTypes['sqlite/text@1']['input'] | null;
+      readonly locked_by: CodecTypes['sqlite/text@1']['input'] | null;
+      readonly next_attempt_at: CodecTypes['sqlite/text@1']['input'];
+      readonly payment_attempt_id: CodecTypes['sqlite/text@1']['input'];
+      readonly status: CodecTypes['sqlite/text@1']['input'];
+      readonly updated_at: CodecTypes['sqlite/text@1']['input'];
+    };
+    readonly webhook_outbox: {
+      readonly attempt_count: CodecTypes['sqlite/integer@1']['input'];
+      readonly claim_token: CodecTypes['sqlite/text@1']['input'] | null;
+      readonly created_at: CodecTypes['sqlite/text@1']['input'];
+      readonly delivered_at: CodecTypes['sqlite/text@1']['input'] | null;
+      readonly event_type: CodecTypes['sqlite/text@1']['input'];
+      readonly id: CodecTypes['sqlite/text@1']['input'];
+      readonly last_error: CodecTypes['sqlite/text@1']['input'] | null;
+      readonly lease_expires_at: CodecTypes['sqlite/text@1']['input'] | null;
+      readonly locked_by: CodecTypes['sqlite/text@1']['input'] | null;
+      readonly merchant_id: CodecTypes['sqlite/text@1']['input'];
+      readonly next_attempt_at: CodecTypes['sqlite/text@1']['input'];
+      readonly payload: CodecTypes['sqlite/text@1']['input'];
+      readonly payment_event_id: CodecTypes['sqlite/text@1']['input'];
+      readonly payment_intent_id: CodecTypes['sqlite/text@1']['input'];
+      readonly status: CodecTypes['sqlite/text@1']['input'];
     };
   };
 };
@@ -388,7 +584,29 @@ export namespace Models {
     webhookUrl: CodecTypes['sqlite/text@1']['output'];
     commands: Command[];
     payments: PaymentIntent[];
-    readonly [RelationKeys]?: 'commands' | 'payments';
+    webhookWork: WebhookOutbox[];
+    readonly [RelationKeys]?: 'commands' | 'payments' | 'webhookWork';
+  };
+  export type PaymentAttempt = {
+    attemptNumber: CodecTypes['sqlite/integer@1']['output'];
+    createdAt: CodecTypes['sqlite/text@1']['output'];
+    failureCode: CodecTypes['sqlite/text@1']['output'] | null;
+    failureMessage: CodecTypes['sqlite/text@1']['output'] | null;
+    id: CodecTypes['sqlite/text@1']['output'];
+    mockPaymentMethodRef: CodecTypes['sqlite/text@1']['output'];
+    paymentIntentId: CodecTypes['sqlite/text@1']['output'];
+    provider: CodecTypes['sqlite/text@1']['output'];
+    providerAccountRef: CodecTypes['sqlite/text@1']['output'];
+    providerFinancialResult: CodecTypes['sqlite/text@1']['output'] | null;
+    providerHostReference: CodecTypes['sqlite/text@1']['output'] | null;
+    providerOperationResult: CodecTypes['sqlite/text@1']['output'] | null;
+    providerServiceResult: CodecTypes['sqlite/text@1']['output'] | null;
+    providerTransactionId: CodecTypes['sqlite/text@1']['output'];
+    status: CodecTypes['sqlite/text@1']['output'];
+    updatedAt: CodecTypes['sqlite/text@1']['output'];
+    payment: PaymentIntent;
+    providerWork: ProviderOutbox[];
+    readonly [RelationKeys]?: 'payment' | 'providerWork';
   };
   export type PaymentEvent = {
     actorId: CodecTypes['sqlite/text@1']['output'];
@@ -403,7 +621,8 @@ export namespace Models {
     toStatus: CodecTypes['sqlite/text@1']['output'] | null;
     type: CodecTypes['sqlite/text@1']['output'];
     payment: PaymentIntent;
-    readonly [RelationKeys]?: 'payment';
+    webhookWork: WebhookOutbox[];
+    readonly [RelationKeys]?: 'payment' | 'webhookWork';
   };
   export type PaymentIntent = {
     amount: CodecTypes['sqlite/integer@1']['output'];
@@ -419,17 +638,59 @@ export namespace Models {
     revision: CodecTypes['sqlite/integer@1']['output'];
     status: CodecTypes['sqlite/text@1']['output'];
     updatedAt: CodecTypes['sqlite/text@1']['output'];
+    attempts: PaymentAttempt[];
     events: PaymentEvent[];
     merchant: Merchant;
-    readonly [RelationKeys]?: 'events' | 'merchant';
+    webhookWork: WebhookOutbox[];
+    readonly [RelationKeys]?: 'attempts' | 'events' | 'merchant' | 'webhookWork';
+  };
+  export type ProviderOutbox = {
+    attemptCount: CodecTypes['sqlite/integer@1']['output'];
+    claimToken: CodecTypes['sqlite/text@1']['output'] | null;
+    completedAt: CodecTypes['sqlite/text@1']['output'] | null;
+    createdAt: CodecTypes['sqlite/text@1']['output'];
+    id: CodecTypes['sqlite/text@1']['output'];
+    lastError: CodecTypes['sqlite/text@1']['output'] | null;
+    leaseExpiresAt: CodecTypes['sqlite/text@1']['output'] | null;
+    lockedBy: CodecTypes['sqlite/text@1']['output'] | null;
+    nextAttemptAt: CodecTypes['sqlite/text@1']['output'];
+    paymentAttemptId: CodecTypes['sqlite/text@1']['output'];
+    status: CodecTypes['sqlite/text@1']['output'];
+    updatedAt: CodecTypes['sqlite/text@1']['output'];
+    attempt: PaymentAttempt;
+    readonly [RelationKeys]?: 'attempt';
+  };
+  export type WebhookOutbox = {
+    attemptCount: CodecTypes['sqlite/integer@1']['output'];
+    claimToken: CodecTypes['sqlite/text@1']['output'] | null;
+    createdAt: CodecTypes['sqlite/text@1']['output'];
+    deliveredAt: CodecTypes['sqlite/text@1']['output'] | null;
+    eventType: CodecTypes['sqlite/text@1']['output'];
+    id: CodecTypes['sqlite/text@1']['output'];
+    lastError: CodecTypes['sqlite/text@1']['output'] | null;
+    leaseExpiresAt: CodecTypes['sqlite/text@1']['output'] | null;
+    lockedBy: CodecTypes['sqlite/text@1']['output'] | null;
+    merchantId: CodecTypes['sqlite/text@1']['output'];
+    nextAttemptAt: CodecTypes['sqlite/text@1']['output'];
+    payload: CodecTypes['sqlite/text@1']['output'];
+    paymentEventId: CodecTypes['sqlite/text@1']['output'];
+    paymentIntentId: CodecTypes['sqlite/text@1']['output'];
+    status: CodecTypes['sqlite/text@1']['output'];
+    event: PaymentEvent;
+    merchant: Merchant;
+    payment: PaymentIntent;
+    readonly [RelationKeys]?: 'event' | 'merchant' | 'payment';
   };
 }
 
 export declare const models: {
   Command: Models.Command;
   Merchant: Models.Merchant;
+  PaymentAttempt: Models.PaymentAttempt;
   PaymentEvent: Models.PaymentEvent;
   PaymentIntent: Models.PaymentIntent;
+  ProviderOutbox: Models.ProviderOutbox;
+  WebhookOutbox: Models.WebhookOutbox;
 };
 
 export type TypeMaps = TypeMapsType<
@@ -614,6 +875,133 @@ type ContractBase = Omit<
               ];
               indexes: readonly [];
               foreignKeys: readonly [];
+            };
+            readonly payment_attempts: {
+              columns: {
+                readonly attempt_number: {
+                  readonly dataType: 'sqlite/integer';
+                  readonly codecId: 'sqlite/integer@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly created_at: {
+                  readonly dataType: 'sqlite/text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly failure_code: {
+                  readonly dataType: 'sqlite/text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
+                readonly failure_message: {
+                  readonly dataType: 'sqlite/text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
+                readonly id: {
+                  readonly dataType: 'sqlite/text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly mock_payment_method_ref: {
+                  readonly dataType: 'sqlite/text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly payment_intent_id: {
+                  readonly dataType: 'sqlite/text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly provider: {
+                  readonly dataType: 'sqlite/text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly provider_account_ref: {
+                  readonly dataType: 'sqlite/text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly provider_financial_result: {
+                  readonly dataType: 'sqlite/text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
+                readonly provider_host_reference: {
+                  readonly dataType: 'sqlite/text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
+                readonly provider_operation_result: {
+                  readonly dataType: 'sqlite/text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
+                readonly provider_service_result: {
+                  readonly dataType: 'sqlite/text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
+                readonly provider_transaction_id: {
+                  readonly dataType: 'sqlite/text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly status: {
+                  readonly dataType: 'sqlite/text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly updated_at: {
+                  readonly dataType: 'sqlite/text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+              };
+              primaryKey: { readonly columns: readonly ['id'] };
+              uniques: readonly [
+                { readonly columns: readonly ['payment_intent_id', 'attempt_number'] },
+                { readonly columns: readonly ['provider', 'provider_transaction_id'] },
+              ];
+              indexes: readonly [
+                {
+                  readonly name: 'payment_attempts_payment_intent_id_idx_2dc6a9d2';
+                  readonly prefix: 'payment_attempts_payment_intent_id_idx';
+                  readonly columns: readonly ['payment_intent_id'];
+                  readonly unique: false;
+                },
+              ];
+              foreignKeys: readonly [
+                {
+                  readonly source: {
+                    readonly namespaceId: '__unbound__' & NamespaceId;
+                    readonly tableName: 'payment_attempts';
+                    readonly columns: readonly ['payment_intent_id'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: '__unbound__' & NamespaceId;
+                    readonly tableName: 'payment_intents';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+              ];
             };
             readonly payment_events: {
               columns: {
@@ -818,6 +1206,247 @@ type ContractBase = Omit<
                 },
               ];
             };
+            readonly provider_outbox: {
+              columns: {
+                readonly attempt_count: {
+                  readonly dataType: 'sqlite/integer';
+                  readonly codecId: 'sqlite/integer@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly claim_token: {
+                  readonly dataType: 'sqlite/text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
+                readonly completed_at: {
+                  readonly dataType: 'sqlite/text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
+                readonly created_at: {
+                  readonly dataType: 'sqlite/text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly id: {
+                  readonly dataType: 'sqlite/text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly last_error: {
+                  readonly dataType: 'sqlite/text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
+                readonly lease_expires_at: {
+                  readonly dataType: 'sqlite/text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
+                readonly locked_by: {
+                  readonly dataType: 'sqlite/text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
+                readonly next_attempt_at: {
+                  readonly dataType: 'sqlite/text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly payment_attempt_id: {
+                  readonly dataType: 'sqlite/text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly status: {
+                  readonly dataType: 'sqlite/text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly updated_at: {
+                  readonly dataType: 'sqlite/text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+              };
+              primaryKey: { readonly columns: readonly ['id'] };
+              uniques: readonly [{ readonly columns: readonly ['payment_attempt_id'] }];
+              indexes: readonly [];
+              foreignKeys: readonly [
+                {
+                  readonly source: {
+                    readonly namespaceId: '__unbound__' & NamespaceId;
+                    readonly tableName: 'provider_outbox';
+                    readonly columns: readonly ['payment_attempt_id'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: '__unbound__' & NamespaceId;
+                    readonly tableName: 'payment_attempts';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+              ];
+            };
+            readonly webhook_outbox: {
+              columns: {
+                readonly attempt_count: {
+                  readonly dataType: 'sqlite/integer';
+                  readonly codecId: 'sqlite/integer@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly claim_token: {
+                  readonly dataType: 'sqlite/text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
+                readonly created_at: {
+                  readonly dataType: 'sqlite/text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly delivered_at: {
+                  readonly dataType: 'sqlite/text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
+                readonly event_type: {
+                  readonly dataType: 'sqlite/text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly id: {
+                  readonly dataType: 'sqlite/text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly last_error: {
+                  readonly dataType: 'sqlite/text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
+                readonly lease_expires_at: {
+                  readonly dataType: 'sqlite/text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
+                readonly locked_by: {
+                  readonly dataType: 'sqlite/text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
+                readonly merchant_id: {
+                  readonly dataType: 'sqlite/text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly next_attempt_at: {
+                  readonly dataType: 'sqlite/text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly payload: {
+                  readonly dataType: 'sqlite/text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly payment_event_id: {
+                  readonly dataType: 'sqlite/text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly payment_intent_id: {
+                  readonly dataType: 'sqlite/text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly status: {
+                  readonly dataType: 'sqlite/text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+              };
+              primaryKey: { readonly columns: readonly ['id'] };
+              uniques: readonly [{ readonly columns: readonly ['payment_event_id'] }];
+              indexes: readonly [
+                {
+                  readonly name: 'webhook_outbox_merchant_id_idx_92be5ce7';
+                  readonly prefix: 'webhook_outbox_merchant_id_idx';
+                  readonly columns: readonly ['merchant_id'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'webhook_outbox_payment_intent_id_idx_2dc6a9d2';
+                  readonly prefix: 'webhook_outbox_payment_intent_id_idx';
+                  readonly columns: readonly ['payment_intent_id'];
+                  readonly unique: false;
+                },
+              ];
+              foreignKeys: readonly [
+                {
+                  readonly source: {
+                    readonly namespaceId: '__unbound__' & NamespaceId;
+                    readonly tableName: 'webhook_outbox';
+                    readonly columns: readonly ['merchant_id'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: '__unbound__' & NamespaceId;
+                    readonly tableName: 'merchants';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+                {
+                  readonly source: {
+                    readonly namespaceId: '__unbound__' & NamespaceId;
+                    readonly tableName: 'webhook_outbox';
+                    readonly columns: readonly ['payment_intent_id'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: '__unbound__' & NamespaceId;
+                    readonly tableName: 'payment_intents';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+                {
+                  readonly source: {
+                    readonly namespaceId: '__unbound__' & NamespaceId;
+                    readonly tableName: 'webhook_outbox';
+                    readonly columns: readonly ['payment_event_id'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: '__unbound__' & NamespaceId;
+                    readonly tableName: 'payment_events';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+              ];
+            };
           };
         };
       };
@@ -837,6 +1466,10 @@ type ContractBase = Omit<
       readonly namespace: '__unbound__' & NamespaceId;
       readonly model: 'Merchant';
     };
+    readonly payment_attempts: {
+      readonly namespace: '__unbound__' & NamespaceId;
+      readonly model: 'PaymentAttempt';
+    };
     readonly payment_events: {
       readonly namespace: '__unbound__' & NamespaceId;
       readonly model: 'PaymentEvent';
@@ -844,6 +1477,14 @@ type ContractBase = Omit<
     readonly payment_intents: {
       readonly namespace: '__unbound__' & NamespaceId;
       readonly model: 'PaymentIntent';
+    };
+    readonly provider_outbox: {
+      readonly namespace: '__unbound__' & NamespaceId;
+      readonly model: 'ProviderOutbox';
+    };
+    readonly webhook_outbox: {
+      readonly namespace: '__unbound__' & NamespaceId;
+      readonly model: 'WebhookOutbox';
     };
   };
   readonly domain: {
@@ -996,6 +1637,17 @@ type ContractBase = Omit<
                   readonly targetFields: readonly ['merchantId'];
                 };
               };
+              readonly webhookWork: {
+                readonly to: {
+                  readonly namespace: '__unbound__' & NamespaceId;
+                  readonly model: 'WebhookOutbox';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['merchantId'];
+                };
+              };
             };
             readonly storage: {
               readonly table: 'merchants';
@@ -1010,6 +1662,121 @@ type ContractBase = Omit<
                 readonly returnOrigin: { readonly column: 'return_origin' };
                 readonly webhookSecret: { readonly column: 'webhook_secret' };
                 readonly webhookUrl: { readonly column: 'webhook_url' };
+              };
+            };
+          };
+          readonly PaymentAttempt: {
+            readonly fields: {
+              readonly attemptNumber: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/integer@1' };
+              };
+              readonly createdAt: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly failureCode: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly failureMessage: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly id: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly mockPaymentMethodRef: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly paymentIntentId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly provider: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly providerAccountRef: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly providerFinancialResult: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly providerHostReference: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly providerOperationResult: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly providerServiceResult: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly providerTransactionId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly status: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly updatedAt: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+            };
+            readonly relations: {
+              readonly payment: {
+                readonly to: {
+                  readonly namespace: '__unbound__' & NamespaceId;
+                  readonly model: 'PaymentIntent';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: false;
+                readonly on: {
+                  readonly localFields: readonly ['paymentIntentId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+              readonly providerWork: {
+                readonly to: {
+                  readonly namespace: '__unbound__' & NamespaceId;
+                  readonly model: 'ProviderOutbox';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['paymentAttemptId'];
+                };
+              };
+            };
+            readonly storage: {
+              readonly table: 'payment_attempts';
+              readonly namespaceId: '__unbound__';
+              readonly fields: {
+                readonly attemptNumber: { readonly column: 'attempt_number' };
+                readonly createdAt: { readonly column: 'created_at' };
+                readonly failureCode: { readonly column: 'failure_code' };
+                readonly failureMessage: { readonly column: 'failure_message' };
+                readonly id: { readonly column: 'id' };
+                readonly mockPaymentMethodRef: { readonly column: 'mock_payment_method_ref' };
+                readonly paymentIntentId: { readonly column: 'payment_intent_id' };
+                readonly provider: { readonly column: 'provider' };
+                readonly providerAccountRef: { readonly column: 'provider_account_ref' };
+                readonly providerFinancialResult: { readonly column: 'provider_financial_result' };
+                readonly providerHostReference: { readonly column: 'provider_host_reference' };
+                readonly providerOperationResult: { readonly column: 'provider_operation_result' };
+                readonly providerServiceResult: { readonly column: 'provider_service_result' };
+                readonly providerTransactionId: { readonly column: 'provider_transaction_id' };
+                readonly status: { readonly column: 'status' };
+                readonly updatedAt: { readonly column: 'updated_at' };
               };
             };
           };
@@ -1071,6 +1838,17 @@ type ContractBase = Omit<
                 readonly on: {
                   readonly localFields: readonly ['paymentIntentId'];
                   readonly targetFields: readonly ['id'];
+                };
+              };
+              readonly webhookWork: {
+                readonly to: {
+                  readonly namespace: '__unbound__' & NamespaceId;
+                  readonly model: 'WebhookOutbox';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['paymentEventId'];
                 };
               };
             };
@@ -1148,6 +1926,17 @@ type ContractBase = Omit<
               };
             };
             readonly relations: {
+              readonly attempts: {
+                readonly to: {
+                  readonly namespace: '__unbound__' & NamespaceId;
+                  readonly model: 'PaymentAttempt';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['paymentIntentId'];
+                };
+              };
               readonly events: {
                 readonly to: {
                   readonly namespace: '__unbound__' & NamespaceId;
@@ -1171,6 +1960,17 @@ type ContractBase = Omit<
                   readonly targetFields: readonly ['id'];
                 };
               };
+              readonly webhookWork: {
+                readonly to: {
+                  readonly namespace: '__unbound__' & NamespaceId;
+                  readonly model: 'WebhookOutbox';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['paymentIntentId'];
+                };
+              };
             };
             readonly storage: {
               readonly table: 'payment_intents';
@@ -1189,6 +1989,213 @@ type ContractBase = Omit<
                 readonly revision: { readonly column: 'revision' };
                 readonly status: { readonly column: 'status' };
                 readonly updatedAt: { readonly column: 'updated_at' };
+              };
+            };
+          };
+          readonly ProviderOutbox: {
+            readonly fields: {
+              readonly attemptCount: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/integer@1' };
+              };
+              readonly claimToken: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly completedAt: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly createdAt: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly id: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly lastError: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly leaseExpiresAt: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly lockedBy: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly nextAttemptAt: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly paymentAttemptId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly status: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly updatedAt: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+            };
+            readonly relations: {
+              readonly attempt: {
+                readonly to: {
+                  readonly namespace: '__unbound__' & NamespaceId;
+                  readonly model: 'PaymentAttempt';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: false;
+                readonly on: {
+                  readonly localFields: readonly ['paymentAttemptId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+            };
+            readonly storage: {
+              readonly table: 'provider_outbox';
+              readonly namespaceId: '__unbound__';
+              readonly fields: {
+                readonly attemptCount: { readonly column: 'attempt_count' };
+                readonly claimToken: { readonly column: 'claim_token' };
+                readonly completedAt: { readonly column: 'completed_at' };
+                readonly createdAt: { readonly column: 'created_at' };
+                readonly id: { readonly column: 'id' };
+                readonly lastError: { readonly column: 'last_error' };
+                readonly leaseExpiresAt: { readonly column: 'lease_expires_at' };
+                readonly lockedBy: { readonly column: 'locked_by' };
+                readonly nextAttemptAt: { readonly column: 'next_attempt_at' };
+                readonly paymentAttemptId: { readonly column: 'payment_attempt_id' };
+                readonly status: { readonly column: 'status' };
+                readonly updatedAt: { readonly column: 'updated_at' };
+              };
+            };
+          };
+          readonly WebhookOutbox: {
+            readonly fields: {
+              readonly attemptCount: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/integer@1' };
+              };
+              readonly claimToken: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly createdAt: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly deliveredAt: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly eventType: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly id: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly lastError: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly leaseExpiresAt: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly lockedBy: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly merchantId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly nextAttemptAt: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly payload: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly paymentEventId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly paymentIntentId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly status: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+            };
+            readonly relations: {
+              readonly event: {
+                readonly to: {
+                  readonly namespace: '__unbound__' & NamespaceId;
+                  readonly model: 'PaymentEvent';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: false;
+                readonly on: {
+                  readonly localFields: readonly ['paymentEventId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+              readonly merchant: {
+                readonly to: {
+                  readonly namespace: '__unbound__' & NamespaceId;
+                  readonly model: 'Merchant';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: false;
+                readonly on: {
+                  readonly localFields: readonly ['merchantId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+              readonly payment: {
+                readonly to: {
+                  readonly namespace: '__unbound__' & NamespaceId;
+                  readonly model: 'PaymentIntent';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: false;
+                readonly on: {
+                  readonly localFields: readonly ['paymentIntentId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+            };
+            readonly storage: {
+              readonly table: 'webhook_outbox';
+              readonly namespaceId: '__unbound__';
+              readonly fields: {
+                readonly attemptCount: { readonly column: 'attempt_count' };
+                readonly claimToken: { readonly column: 'claim_token' };
+                readonly createdAt: { readonly column: 'created_at' };
+                readonly deliveredAt: { readonly column: 'delivered_at' };
+                readonly eventType: { readonly column: 'event_type' };
+                readonly id: { readonly column: 'id' };
+                readonly lastError: { readonly column: 'last_error' };
+                readonly leaseExpiresAt: { readonly column: 'lease_expires_at' };
+                readonly lockedBy: { readonly column: 'locked_by' };
+                readonly merchantId: { readonly column: 'merchant_id' };
+                readonly nextAttemptAt: { readonly column: 'next_attempt_at' };
+                readonly payload: { readonly column: 'payload' };
+                readonly paymentEventId: { readonly column: 'payment_event_id' };
+                readonly paymentIntentId: { readonly column: 'payment_intent_id' };
+                readonly status: { readonly column: 'status' };
               };
             };
           };

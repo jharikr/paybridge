@@ -12,6 +12,7 @@ model Merchant {
   createdAt String @map("created_at")
   payments PaymentIntent[]
   commands Command[]
+  webhookWork WebhookOutbox[]
   @@map("merchants")
 }
 
@@ -31,6 +32,8 @@ model PaymentIntent {
   updatedAt String @map("updated_at")
   merchant Merchant @relation(fields: [merchantId], references: [id])
   events PaymentEvent[]
+  attempts PaymentAttempt[]
+  webhookWork WebhookOutbox[]
   @@unique([id, merchantId])
   @@map("payment_intents")
 }
@@ -66,5 +69,70 @@ model PaymentEvent {
   metadata String
   createdAt String @map("created_at")
   payment PaymentIntent @relation(fields: [paymentIntentId], references: [id])
+  webhookWork WebhookOutbox[]
   @@map("payment_events")
+}
+
+
+model PaymentAttempt {
+  id String @id
+  paymentIntentId String @map("payment_intent_id")
+  attemptNumber Int @map("attempt_number")
+  provider String
+  providerAccountRef String @map("provider_account_ref")
+  providerTransactionId String @map("provider_transaction_id")
+  providerHostReference String? @map("provider_host_reference")
+  status String
+  providerOperationResult String? @map("provider_operation_result")
+  providerServiceResult String? @map("provider_service_result")
+  providerFinancialResult String? @map("provider_financial_result")
+  mockPaymentMethodRef String @map("mock_payment_method_ref")
+  failureCode String? @map("failure_code")
+  failureMessage String? @map("failure_message")
+  createdAt String @map("created_at")
+  updatedAt String @map("updated_at")
+  payment PaymentIntent @relation(fields: [paymentIntentId], references: [id])
+  providerWork ProviderOutbox[]
+  @@unique([paymentIntentId, attemptNumber])
+  @@unique([provider, providerTransactionId])
+  @@map("payment_attempts")
+}
+
+model ProviderOutbox {
+  id String @id
+  paymentAttemptId String @unique @map("payment_attempt_id")
+  status String
+  attemptCount Int @map("attempt_count")
+  nextAttemptAt String @map("next_attempt_at")
+  lastError String? @map("last_error")
+  createdAt String @map("created_at")
+  updatedAt String @map("updated_at")
+  completedAt String? @map("completed_at")
+  claimToken String? @map("claim_token")
+  lockedBy String? @map("locked_by")
+  leaseExpiresAt String? @map("lease_expires_at")
+  attempt PaymentAttempt @relation(fields: [paymentAttemptId], references: [id])
+  @@map("provider_outbox")
+}
+
+model WebhookOutbox {
+  id String @id
+  paymentEventId String @unique @map("payment_event_id")
+  merchantId String @map("merchant_id")
+  paymentIntentId String @map("payment_intent_id")
+  eventType String @map("event_type")
+  payload String
+  status String
+  attemptCount Int @map("attempt_count")
+  nextAttemptAt String @map("next_attempt_at")
+  lastError String? @map("last_error")
+  createdAt String @map("created_at")
+  deliveredAt String? @map("delivered_at")
+  claimToken String? @map("claim_token")
+  lockedBy String? @map("locked_by")
+  leaseExpiresAt String? @map("lease_expires_at")
+  merchant Merchant @relation(fields: [merchantId], references: [id])
+  payment PaymentIntent @relation(fields: [paymentIntentId], references: [id])
+  event PaymentEvent @relation(fields: [paymentEventId], references: [id])
+  @@map("webhook_outbox")
 }

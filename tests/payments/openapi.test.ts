@@ -167,3 +167,161 @@ test("OpenAPI matches creation, authentication, lookup, bounds, headers, and sta
     await server.stop();
   }
 });
+
+test("OpenAPI matches confirmation acceptance, errors, latest attempt snapshots, and bodyless cancellation", async () => {
+  await using files = await isolatedDatabases();
+  const server = startNodeProcess({ entrypoint, args: [files.paybridge, "0"] });
+  try {
+    const { url } = ready.assert(await server.message());
+    const commandDocument = type({
+      paths: {
+        "/v1/payment-intents/{paymentId}/confirm": {
+          post: {
+            security: "object[]",
+            parameters: "object[]",
+            requestBody: {
+              content: { "application/json": { schema: "object" } },
+            },
+            responses: {
+              "202": documentedResponse,
+              "400": documentedResponse,
+              "409": documentedResponse,
+            },
+          },
+        },
+        "/v1/payment-intents/{paymentId}/cancel": {
+          post: {
+            security: "object[]",
+            responses: { "200": documentedResponse, "409": documentedResponse },
+          },
+        },
+        "/v1/payment-intents/{paymentId}": {
+          get: { responses: { "200": documentedResponse } },
+        },
+      },
+    }).assert(await (await fetch(`${url}/openapi.json`)).json());
+    const post =
+      commandDocument.paths["/v1/payment-intents/{paymentId}/confirm"].post;
+    expect(post.security).toEqual([{ merchantCredential: [] }]);
+    expect(post.parameters).toContainEqual(
+      expect.objectContaining({
+        in: "header",
+        name: "idempotency-key",
+        required: true,
+      }),
+    );
+    expect(post.responses["202"].headers).toMatchObject({
+      location: { schema: { type: "string" } },
+      "cache-control": { schema: { const: "no-store" } },
+    });
+    const ajv = new Ajv2020({ strict: false });
+    const validates = ajv.compile(
+      post.requestBody.content["application/json"].schema,
+    );
+    expect(
+      validates({
+        mockPaymentMethodRef: "pm_mock_approved",
+        expectedRevision: 1,
+      }),
+    ).toBe(true);
+    for (const invalid of [
+      { mockPaymentMethodRef: "pm_mock_approved" },
+      { mockPaymentMethodRef: "pm_mock_approved", expectedRevision: 0 },
+      {
+        mockPaymentMethodRef: "pm_mock_approved",
+        expectedRevision: 9007199254740992,
+      },
+      { mockPaymentMethodRef: "unknown", expectedRevision: 1 },
+      {
+        mockPaymentMethodRef: "pm_mock_approved",
+        expectedRevision: 1,
+        pan: "4111111111111111",
+      },
+    ])
+      expect(validates(invalid)).toBe(false);
+    const headers = {
+      authorization: "Bearer mock-paybridge-key-a",
+      "idempotency-key": "documented-create",
+      "content-type": "application/json",
+    };
+    const creation = await fetch(`${url}/v1/payment-intents`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        merchantReference: "DOCUMENTED-COMMAND",
+        amount: 100,
+        currency: "XCD",
+        returnUrl: "http://127.0.0.1:3101/payment-return",
+      }),
+    });
+    expect(creation.status).toBe(201);
+    const { id } = type({ id: "string" }).assert(await creation.json());
+    const confirmation = await fetch(
+      `${url}/v1/payment-intents/${id}/confirm`,
+      {
+        method: "POST",
+        headers: { ...headers, "idempotency-key": "documented-confirm" },
+        body: JSON.stringify({
+          mockPaymentMethodRef: "pm_mock_approved",
+          expectedRevision: 1,
+        }),
+      },
+    );
+    expect(confirmation.status).toBe(202);
+    expect(
+      ajv.compile(post.responses["202"].content["application/json"].schema)(
+        await confirmation.json(),
+      ),
+    ).toBe(true);
+    const lookup = await fetch(`${url}/v1/payment-intents/${id}`, { headers });
+    const snapshot = await lookup.json();
+    expect(snapshot).toMatchObject({
+      status: "PROCESSING",
+      revision: 2,
+      latestAttempt: { attemptNumber: 1, status: "PROCESSING" },
+    });
+    expect(
+      ajv.compile(
+        commandDocument.paths["/v1/payment-intents/{paymentId}"].get.responses[
+          "200"
+        ].content["application/json"].schema,
+      )(snapshot),
+    ).toBe(true);
+    const cancelled =
+      commandDocument.paths["/v1/payment-intents/{paymentId}/cancel"].post;
+    expect(cancelled).not.toHaveProperty("requestBody");
+    const cancellation = await fetch(`${url}/v1/payment-intents/${id}/cancel`, {
+      method: "POST",
+      headers: { authorization: headers.authorization },
+    });
+    expect(cancellation.status).toBe(409);
+    expect(
+      ajv.compile(
+        cancelled.responses["409"].content["application/json"].schema,
+      )(await cancellation.json()),
+    ).toBe(true);
+    const second = await fetch(`${url}/v1/payment-intents`, {
+      method: "POST",
+      headers: { ...headers, "idempotency-key": "documented-cancel" },
+      body: JSON.stringify({
+        merchantReference: "DOCUMENTED-CANCEL",
+        amount: 100,
+        currency: "XCD",
+        returnUrl: "http://127.0.0.1:3101/payment-return",
+      }),
+    });
+    const secondId = type({ id: "string" }).assert(await second.json()).id;
+    const result = await fetch(`${url}/v1/payment-intents/${secondId}/cancel`, {
+      method: "POST",
+      headers: { authorization: headers.authorization },
+    });
+    expect(result.status).toBe(200);
+    expect(
+      ajv.compile(
+        cancelled.responses["200"].content["application/json"].schema,
+      )(await result.json()),
+    ).toBe(true);
+  } finally {
+    await server.stop();
+  }
+});

@@ -108,7 +108,7 @@ export async function createPayment({
     const response: CommandAcknowledgment = {
       status: 201,
       body: JSON.stringify({
-        ...snapshot(record),
+        ...snapshot({ record }),
         checkoutUrl: `${paybridgeOrigin}/checkout/${id}?token=${token}`,
       }),
       headers: {
@@ -127,7 +127,16 @@ export async function createPayment({
 type StoredPayment = Awaited<
   ReturnType<PaybridgeDatabase["orm"]["PaymentIntent"]["create"]>
 >;
-function snapshot(record: StoredPayment) {
+type StoredAttempt = Awaited<
+  ReturnType<PaybridgeDatabase["orm"]["PaymentAttempt"]["create"]>
+>;
+export function snapshot({
+  record,
+  attempt = null,
+}: {
+  record: StoredPayment;
+  attempt?: StoredAttempt | null;
+}) {
   return paymentSnapshot.assert({
     id: record.id,
     merchantReference: record.merchantReference,
@@ -137,7 +146,16 @@ function snapshot(record: StoredPayment) {
     revision: record.revision,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
-    latestAttempt: null,
+    latestAttempt: attempt
+      ? {
+          id: attempt.id,
+          attemptNumber: attempt.attemptNumber,
+          status: attempt.status,
+          ...(attempt.failureCode === null
+            ? {}
+            : { failureCode: attempt.failureCode }),
+        }
+      : null,
   });
 }
 export async function lookupPayment({
@@ -152,6 +170,12 @@ export async function lookupPayment({
   const found = await db.orm.PaymentIntent.where({
     id,
     merchantId: merchant.id,
-  }).first();
-  return found ? snapshot(found) : null;
+  })
+    .include("attempts", (attempts) =>
+      attempts.orderBy((attempt) => attempt.attemptNumber.desc()).limit(1),
+    )
+    .first();
+  return found
+    ? snapshot({ record: found, attempt: found.attempts[0] ?? null })
+    : null;
 }

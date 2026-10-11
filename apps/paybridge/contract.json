@@ -12,12 +12,24 @@
       "model": "Merchant",
       "namespace": "__unbound__"
     },
+    "payment_attempts": {
+      "model": "PaymentAttempt",
+      "namespace": "__unbound__"
+    },
     "payment_events": {
       "model": "PaymentEvent",
       "namespace": "__unbound__"
     },
     "payment_intents": {
       "model": "PaymentIntent",
+      "namespace": "__unbound__"
+    },
+    "provider_outbox": {
+      "model": "ProviderOutbox",
+      "namespace": "__unbound__"
+    },
+    "webhook_outbox": {
+      "model": "WebhookOutbox",
       "namespace": "__unbound__"
     }
   },
@@ -269,6 +281,21 @@
                   "model": "PaymentIntent",
                   "namespace": "__unbound__"
                 }
+              },
+              "webhookWork": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "merchantId"
+                  ]
+                },
+                "to": {
+                  "model": "WebhookOutbox",
+                  "namespace": "__unbound__"
+                }
               }
             },
             "storage": {
@@ -303,6 +330,209 @@
               },
               "namespaceId": "__unbound__",
               "table": "merchants"
+            }
+          },
+          "PaymentAttempt": {
+            "fields": {
+              "attemptNumber": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/integer@1",
+                  "kind": "scalar"
+                }
+              },
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "failureCode": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "failureMessage": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "mockPaymentMethodRef": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "paymentIntentId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "provider": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "providerAccountRef": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "providerFinancialResult": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "providerHostReference": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "providerOperationResult": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "providerServiceResult": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "providerTransactionId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "status": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "updatedAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {
+              "payment": {
+                "cardinality": "N:1",
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "paymentIntentId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "PaymentIntent",
+                  "namespace": "__unbound__"
+                }
+              },
+              "providerWork": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "paymentAttemptId"
+                  ]
+                },
+                "to": {
+                  "model": "ProviderOutbox",
+                  "namespace": "__unbound__"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "attemptNumber": {
+                  "column": "attempt_number"
+                },
+                "createdAt": {
+                  "column": "created_at"
+                },
+                "failureCode": {
+                  "column": "failure_code"
+                },
+                "failureMessage": {
+                  "column": "failure_message"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "mockPaymentMethodRef": {
+                  "column": "mock_payment_method_ref"
+                },
+                "paymentIntentId": {
+                  "column": "payment_intent_id"
+                },
+                "provider": {
+                  "column": "provider"
+                },
+                "providerAccountRef": {
+                  "column": "provider_account_ref"
+                },
+                "providerFinancialResult": {
+                  "column": "provider_financial_result"
+                },
+                "providerHostReference": {
+                  "column": "provider_host_reference"
+                },
+                "providerOperationResult": {
+                  "column": "provider_operation_result"
+                },
+                "providerServiceResult": {
+                  "column": "provider_service_result"
+                },
+                "providerTransactionId": {
+                  "column": "provider_transaction_id"
+                },
+                "status": {
+                  "column": "status"
+                },
+                "updatedAt": {
+                  "column": "updated_at"
+                }
+              },
+              "namespaceId": "__unbound__",
+              "table": "payment_attempts"
             }
           },
           "PaymentEvent": {
@@ -399,6 +629,21 @@
                 },
                 "to": {
                   "model": "PaymentIntent",
+                  "namespace": "__unbound__"
+                }
+              },
+              "webhookWork": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "paymentEventId"
+                  ]
+                },
+                "to": {
+                  "model": "WebhookOutbox",
                   "namespace": "__unbound__"
                 }
               }
@@ -538,6 +783,21 @@
               }
             },
             "relations": {
+              "attempts": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "paymentIntentId"
+                  ]
+                },
+                "to": {
+                  "model": "PaymentAttempt",
+                  "namespace": "__unbound__"
+                }
+              },
               "events": {
                 "cardinality": "1:N",
                 "on": {
@@ -566,6 +826,21 @@
                 },
                 "to": {
                   "model": "Merchant",
+                  "namespace": "__unbound__"
+                }
+              },
+              "webhookWork": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "paymentIntentId"
+                  ]
+                },
+                "to": {
+                  "model": "WebhookOutbox",
                   "namespace": "__unbound__"
                 }
               }
@@ -614,6 +889,364 @@
               },
               "namespaceId": "__unbound__",
               "table": "payment_intents"
+            }
+          },
+          "ProviderOutbox": {
+            "fields": {
+              "attemptCount": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/integer@1",
+                  "kind": "scalar"
+                }
+              },
+              "claimToken": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "completedAt": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "lastError": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "leaseExpiresAt": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "lockedBy": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "nextAttemptAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "paymentAttemptId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "status": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "updatedAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {
+              "attempt": {
+                "cardinality": "N:1",
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "paymentAttemptId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "PaymentAttempt",
+                  "namespace": "__unbound__"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "attemptCount": {
+                  "column": "attempt_count"
+                },
+                "claimToken": {
+                  "column": "claim_token"
+                },
+                "completedAt": {
+                  "column": "completed_at"
+                },
+                "createdAt": {
+                  "column": "created_at"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "lastError": {
+                  "column": "last_error"
+                },
+                "leaseExpiresAt": {
+                  "column": "lease_expires_at"
+                },
+                "lockedBy": {
+                  "column": "locked_by"
+                },
+                "nextAttemptAt": {
+                  "column": "next_attempt_at"
+                },
+                "paymentAttemptId": {
+                  "column": "payment_attempt_id"
+                },
+                "status": {
+                  "column": "status"
+                },
+                "updatedAt": {
+                  "column": "updated_at"
+                }
+              },
+              "namespaceId": "__unbound__",
+              "table": "provider_outbox"
+            }
+          },
+          "WebhookOutbox": {
+            "fields": {
+              "attemptCount": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/integer@1",
+                  "kind": "scalar"
+                }
+              },
+              "claimToken": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "deliveredAt": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "eventType": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "lastError": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "leaseExpiresAt": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "lockedBy": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "merchantId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "nextAttemptAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "payload": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "paymentEventId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "paymentIntentId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "status": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {
+              "event": {
+                "cardinality": "N:1",
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "paymentEventId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "PaymentEvent",
+                  "namespace": "__unbound__"
+                }
+              },
+              "merchant": {
+                "cardinality": "N:1",
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "merchantId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Merchant",
+                  "namespace": "__unbound__"
+                }
+              },
+              "payment": {
+                "cardinality": "N:1",
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "paymentIntentId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "PaymentIntent",
+                  "namespace": "__unbound__"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "attemptCount": {
+                  "column": "attempt_count"
+                },
+                "claimToken": {
+                  "column": "claim_token"
+                },
+                "createdAt": {
+                  "column": "created_at"
+                },
+                "deliveredAt": {
+                  "column": "delivered_at"
+                },
+                "eventType": {
+                  "column": "event_type"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "lastError": {
+                  "column": "last_error"
+                },
+                "leaseExpiresAt": {
+                  "column": "lease_expires_at"
+                },
+                "lockedBy": {
+                  "column": "locked_by"
+                },
+                "merchantId": {
+                  "column": "merchant_id"
+                },
+                "nextAttemptAt": {
+                  "column": "next_attempt_at"
+                },
+                "payload": {
+                  "column": "payload"
+                },
+                "paymentEventId": {
+                  "column": "payment_event_id"
+                },
+                "paymentIntentId": {
+                  "column": "payment_intent_id"
+                },
+                "status": {
+                  "column": "status"
+                }
+              },
+              "namespaceId": "__unbound__",
+              "table": "webhook_outbox"
             }
           }
         }
@@ -788,6 +1421,137 @@
                 {
                   "columns": [
                     "api_key_hash"
+                  ]
+                }
+              ]
+            },
+            "payment_attempts": {
+              "columns": {
+                "attempt_number": {
+                  "codecId": "sqlite/integer@1",
+                  "dataType": "sqlite/integer",
+                  "nullable": false
+                },
+                "created_at": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": false
+                },
+                "failure_code": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": true
+                },
+                "failure_message": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": true
+                },
+                "id": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": false
+                },
+                "mock_payment_method_ref": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": false
+                },
+                "payment_intent_id": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": false
+                },
+                "provider": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": false
+                },
+                "provider_account_ref": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": false
+                },
+                "provider_financial_result": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": true
+                },
+                "provider_host_reference": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": true
+                },
+                "provider_operation_result": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": true
+                },
+                "provider_service_result": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": true
+                },
+                "provider_transaction_id": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": false
+                },
+                "status": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": false
+                },
+                "updated_at": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [
+                {
+                  "source": {
+                    "columns": [
+                      "payment_intent_id"
+                    ],
+                    "namespaceId": "__unbound__",
+                    "tableName": "payment_attempts"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "__unbound__",
+                    "tableName": "payment_intents"
+                  }
+                }
+              ],
+              "indexes": [
+                {
+                  "columns": [
+                    "payment_intent_id"
+                  ],
+                  "name": "payment_attempts_payment_intent_id_idx_2dc6a9d2",
+                  "prefix": "payment_attempts_payment_intent_id_idx",
+                  "unique": false
+                }
+              ],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ]
+              },
+              "uniques": [
+                {
+                  "columns": [
+                    "payment_intent_id",
+                    "attempt_number"
+                  ]
+                },
+                {
+                  "columns": [
+                    "provider",
+                    "provider_transaction_id"
                   ]
                 }
               ]
@@ -999,13 +1763,267 @@
                   ]
                 }
               ]
+            },
+            "provider_outbox": {
+              "columns": {
+                "attempt_count": {
+                  "codecId": "sqlite/integer@1",
+                  "dataType": "sqlite/integer",
+                  "nullable": false
+                },
+                "claim_token": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": true
+                },
+                "completed_at": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": true
+                },
+                "created_at": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": false
+                },
+                "id": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": false
+                },
+                "last_error": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": true
+                },
+                "lease_expires_at": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": true
+                },
+                "locked_by": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": true
+                },
+                "next_attempt_at": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": false
+                },
+                "payment_attempt_id": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": false
+                },
+                "status": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": false
+                },
+                "updated_at": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [
+                {
+                  "source": {
+                    "columns": [
+                      "payment_attempt_id"
+                    ],
+                    "namespaceId": "__unbound__",
+                    "tableName": "provider_outbox"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "__unbound__",
+                    "tableName": "payment_attempts"
+                  }
+                }
+              ],
+              "indexes": [],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ]
+              },
+              "uniques": [
+                {
+                  "columns": [
+                    "payment_attempt_id"
+                  ]
+                }
+              ]
+            },
+            "webhook_outbox": {
+              "columns": {
+                "attempt_count": {
+                  "codecId": "sqlite/integer@1",
+                  "dataType": "sqlite/integer",
+                  "nullable": false
+                },
+                "claim_token": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": true
+                },
+                "created_at": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": false
+                },
+                "delivered_at": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": true
+                },
+                "event_type": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": false
+                },
+                "id": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": false
+                },
+                "last_error": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": true
+                },
+                "lease_expires_at": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": true
+                },
+                "locked_by": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": true
+                },
+                "merchant_id": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": false
+                },
+                "next_attempt_at": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": false
+                },
+                "payload": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": false
+                },
+                "payment_event_id": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": false
+                },
+                "payment_intent_id": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": false
+                },
+                "status": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [
+                {
+                  "source": {
+                    "columns": [
+                      "merchant_id"
+                    ],
+                    "namespaceId": "__unbound__",
+                    "tableName": "webhook_outbox"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "__unbound__",
+                    "tableName": "merchants"
+                  }
+                },
+                {
+                  "source": {
+                    "columns": [
+                      "payment_intent_id"
+                    ],
+                    "namespaceId": "__unbound__",
+                    "tableName": "webhook_outbox"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "__unbound__",
+                    "tableName": "payment_intents"
+                  }
+                },
+                {
+                  "source": {
+                    "columns": [
+                      "payment_event_id"
+                    ],
+                    "namespaceId": "__unbound__",
+                    "tableName": "webhook_outbox"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "__unbound__",
+                    "tableName": "payment_events"
+                  }
+                }
+              ],
+              "indexes": [
+                {
+                  "columns": [
+                    "merchant_id"
+                  ],
+                  "name": "webhook_outbox_merchant_id_idx_92be5ce7",
+                  "prefix": "webhook_outbox_merchant_id_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "payment_intent_id"
+                  ],
+                  "name": "webhook_outbox_payment_intent_id_idx_2dc6a9d2",
+                  "prefix": "webhook_outbox_payment_intent_id_idx",
+                  "unique": false
+                }
+              ],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ]
+              },
+              "uniques": [
+                {
+                  "columns": [
+                    "payment_event_id"
+                  ]
+                }
+              ]
             }
           }
         },
         "id": "__unbound__"
       }
     },
-    "storageHash": "4f8c8ff366a53054d16a2ef113d26f49096154023650a816fb53500d285aaec8"
+    "storageHash": "668fba7bd586d6ca897717a237ca3168f1a4d85aeace6872024ae7d849d6564c"
   },
   "capabilities": {
     "sql": {

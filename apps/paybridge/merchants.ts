@@ -5,7 +5,11 @@ import type { PaybridgeDatabase } from "./database.ts";
 
 export const hashSecret = (secret: string) =>
   createHash("sha256").update(secret).digest("hex");
-const authenticatedMerchant = type({ id: merchantId, returnOrigin: "string" });
+const authenticatedMerchant = type({
+  id: merchantId,
+  returnOrigin: "string",
+  providerAccountRef: "'mock-account-a' | 'mock-account-b'",
+});
 export type AuthenticatedMerchant = typeof authenticatedMerchant.infer;
 
 export async function seedMerchants({
@@ -52,5 +56,6 @@ export async function authenticateMerchant({
   return authenticatedMerchant.assert({
     id: found.id,
     returnOrigin: found.returnOrigin,
+    providerAccountRef: found.providerAccountRef,
   });
 }

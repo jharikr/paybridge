@@ -29,11 +29,15 @@ export async function implementationFingerprint() {
   return hash.digest("hex");
 }
 
-export function inspect(
-  path: string,
-  sql: string,
-  params: SQLInputValue[] = [],
-): unknown[] {
+export function inspect({
+  path,
+  sql,
+  params = [],
+}: {
+  path: string;
+  sql: string;
+  params?: SQLInputValue[];
+}): unknown[] {
   const db = new DatabaseSync(path, { readOnly: true });
   try {
     db.exec("PRAGMA busy_timeout = 5000");
@@ -43,8 +47,9 @@ export function inspect(
   }
 }
 
-export function count(path: string, sql: string) {
-  return type({ count: "number.integer" }).assert(inspect(path, sql)[0]).count;
+export function count({ path, sql }: { path: string; sql: string }) {
+  return type({ count: "number.integer" }).assert(inspect({ path, sql })[0])
+    .count;
 }
 
 export function financialFingerprint(files: {
@@ -52,19 +57,22 @@ export function financialFingerprint(files: {
   mock: string;
 }) {
   const facts = {
-    intents: inspect(
-      files.paybridge,
-      "SELECT * FROM payment_intents ORDER BY id",
-    ),
-    attempts: inspect(
-      files.paybridge,
-      "SELECT * FROM payment_attempts ORDER BY id",
-    ),
-    events: inspect(
-      files.paybridge,
-      "SELECT * FROM payment_events ORDER BY id",
-    ),
-    ledger: inspect(files.mock, "SELECT * FROM mock_transactions ORDER BY id"),
+    intents: inspect({
+      path: files.paybridge,
+      sql: "SELECT * FROM payment_intents ORDER BY id",
+    }),
+    attempts: inspect({
+      path: files.paybridge,
+      sql: "SELECT * FROM payment_attempts ORDER BY id",
+    }),
+    events: inspect({
+      path: files.paybridge,
+      sql: "SELECT * FROM payment_events ORDER BY id",
+    }),
+    ledger: inspect({
+      path: files.mock,
+      sql: "SELECT * FROM mock_transactions ORDER BY id",
+    }),
   };
   return createHash("sha256").update(JSON.stringify(facts)).digest("hex");
 }

@@ -9,10 +9,10 @@ import { epoch, payload, receiver, signed } from "./support.ts";
 
 test("raw bytes, exact identity, schema, signatures, and both timestamp bounds protect receipts", async () => {
   await using files = await isolatedDatabases();
-  const app = await receiver(files.merchant);
+  const app = await receiver({ path: files.merchant });
   const url = `${app.url}/api/webhooks/paybridge/merchant-a`;
   try {
-    const base = signed(payload);
+    const base = signed({ body: payload });
     const event = webhookEvent.assert(JSON.parse(payload));
     const altered = JSON.stringify({
       ...event,
@@ -43,7 +43,7 @@ test("raw bytes, exact identity, schema, signatures, and both timestamp bounds p
     ];
     for (const body of invalidBodies)
       expect(
-        (await fetch(url, { method: "POST", body, headers: signed(body) }))
+        (await fetch(url, { method: "POST", body, headers: signed({ body }) }))
           .status,
       ).toBe(400);
     const invalidUtf8 = Buffer.concat([
@@ -55,7 +55,7 @@ test("raw bytes, exact identity, schema, signatures, and both timestamp bounds p
         await fetch(url, {
           method: "POST",
           body: invalidUtf8,
-          headers: signed(invalidUtf8),
+          headers: signed({ body: invalidUtf8 }),
         })
       ).status,
     ).toBe(400);
@@ -93,7 +93,7 @@ test("raw bytes, exact identity, schema, signatures, and both timestamp bounds p
           await fetch(url, {
             method: "POST",
             body: payload,
-            headers: signed(payload, { timestamp }),
+            headers: signed({ body: payload, options: { timestamp } }),
           })
         ).status,
       ).toBe(401);
@@ -102,7 +102,10 @@ test("raw bytes, exact identity, schema, signatures, and both timestamp bounds p
         await fetch(url, {
           method: "POST",
           body: payload,
-          headers: signed(payload, { secret: "mock-webhook-secret-b" }),
+          headers: signed({
+            body: payload,
+            options: { secret: "mock-webhook-secret-b" },
+          }),
         })
       ).status,
     ).toBe(401);
@@ -145,27 +148,30 @@ test("raw bytes, exact identity, schema, signatures, and both timestamp bounds p
         await fetch(url, {
           method: "POST",
           body: large,
-          headers: signed(large),
+          headers: signed({ body: large }),
         })
       ).status,
     ).toBe(413);
-    expect(rows(files.merchant, "SELECT event_id FROM webhook_inbox")).toEqual(
-      [],
-    );
+    expect(
+      rows({ path: files.merchant, sql: "SELECT event_id FROM webhook_inbox" }),
+    ).toEqual([]);
     for (const seconds of [-300, 300])
       expect(
         (
           await fetch(url, {
             method: "POST",
             body: payload,
-            headers: signed(payload, {
-              timestamp: String(epoch / 1000 + seconds),
+            headers: signed({
+              body: payload,
+              options: {
+                timestamp: String(epoch / 1000 + seconds),
+              },
             }),
           })
         ).status,
       ).toBe(204);
     expect(
-      rows(files.merchant, "SELECT event_id FROM webhook_inbox"),
+      rows({ path: files.merchant, sql: "SELECT event_id FROM webhook_inbox" }),
     ).toHaveLength(1);
     expect(app.output()).not.toMatch(
       /mock-webhook-secret|v1=[a-f0-9]{64}|Café/,
@@ -199,7 +205,7 @@ const jsonResponse = type({
 });
 test("the receiver OpenAPI describes signed JSON bytes and matches real responses", async () => {
   await using files = await isolatedDatabases();
-  const app = await receiver(files.merchant);
+  const app = await receiver({ path: files.merchant });
   try {
     const document = receiverDocument.assert(
       await (await fetch(`${app.url}/openapi.json`)).json(),
@@ -239,7 +245,7 @@ test("the receiver OpenAPI describes signed JSON bytes and matches real response
       expect(parameter.required).toBe(true);
       expect(
         ajv.compile(type("object").assert(parameter.schema))(
-          new Headers(signed(payload)).get(parameter.name),
+          new Headers(signed({ body: payload })).get(parameter.name),
         ),
       ).toBe(true);
       expect(
@@ -250,21 +256,29 @@ test("the receiver OpenAPI describes signed JSON bytes and matches real response
       jsonResponse.assert(operation.responses[status]);
     const url = `${app.url}/api/webhooks/paybridge/merchant-a`;
     for (const [body, headers, status] of [
-      [payload, signed(payload), 204],
+      [payload, signed({ body: payload }), 204],
       [
         payload,
         {
-          ...signed(payload),
+          ...signed({ body: payload }),
           "content-type": 'application/json; charset = "UTF-8"',
         },
         204,
       ],
-      [payload, signed(payload), 204],
-      [payload + " ", signed(payload + " "), 409],
-      ["{", signed("{"), 400],
-      [payload, signed(payload, { secret: "wrong" }), 401],
-      [payload, { ...signed(payload), "content-type": "text/plain" }, 415],
-      [payload + " ".repeat(16384), signed(payload + " ".repeat(16384)), 413],
+      [payload, signed({ body: payload }), 204],
+      [payload + " ", signed({ body: payload + " " }), 409],
+      ["{", signed({ body: "{" }), 400],
+      [payload, signed({ body: payload, options: { secret: "wrong" } }), 401],
+      [
+        payload,
+        { ...signed({ body: payload }), "content-type": "text/plain" },
+        415,
+      ],
+      [
+        payload + " ".repeat(16384),
+        signed({ body: payload + " ".repeat(16384) }),
+        413,
+      ],
     ] satisfies [string, Record<string, string>, number][]) {
       const response = await fetch(url, { method: "POST", headers, body });
       expect(response.status).toBe(status);
@@ -294,7 +308,11 @@ test("the receiver OpenAPI describes signed JSON bytes and matches real response
 
 test("configured timestamp tolerance applies to both directions", async () => {
   await using files = await isolatedDatabases();
-  const app = await receiver(files.merchant, "none", 1);
+  const app = await receiver({
+    path: files.merchant,
+    fault: "none",
+    tolerance: 1,
+  });
   try {
     for (const seconds of [-2, 2, -1, 1]) {
       const response = await fetch(
@@ -302,8 +320,11 @@ test("configured timestamp tolerance applies to both directions", async () => {
         {
           method: "POST",
           body: payload,
-          headers: signed(payload, {
-            timestamp: String(epoch / 1000 + seconds),
+          headers: signed({
+            body: payload,
+            options: {
+              timestamp: String(epoch / 1000 + seconds),
+            },
           }),
         },
       );

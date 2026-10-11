@@ -17,13 +17,19 @@ test.each([
       path: files.merchant,
       paybridgeUrl: "http://127.0.0.1:3100",
     });
-    const api = await startApi(files.paybridge, merchant.url);
+    const api = await startApi({
+      path: files.paybridge,
+      merchantOrigin: merchant.url,
+    });
     let worker: Awaited<ReturnType<typeof startDelivery>> | undefined;
     try {
-      await cancelled(api.url, merchant.url);
-      worker = await startDelivery(files.paybridge, {
-        timeout: 300,
-        lease: 500,
+      await cancelled({ url: api.url, merchantOrigin: merchant.url });
+      worker = await startDelivery({
+        path: files.paybridge,
+        options: {
+          timeout: 300,
+          lease: 500,
+        },
       });
       const blocker = new DatabaseSync(files.paybridge);
       try {
@@ -37,14 +43,17 @@ test.each([
       }
       await expect
         .poll(() =>
-          rows(
-            files.paybridge,
-            "SELECT status,attempt_count FROM webhook_outbox",
-          ),
+          rows({
+            path: files.paybridge,
+            sql: "SELECT status,attempt_count FROM webhook_outbox",
+          }),
         )
         .toEqual([{ status: "DELIVERED", attempt_count: count }]);
       expect(
-        rows(files.merchant, "SELECT event_id FROM webhook_inbox"),
+        rows({
+          path: files.merchant,
+          sql: "SELECT event_id FROM webhook_inbox",
+        }),
       ).toHaveLength(1);
     } finally {
       await worker?.stop();
@@ -60,45 +69,54 @@ test("two simultaneous senders have one owner for fresh work", async () => {
     path: files.merchant,
     paybridgeUrl: "http://127.0.0.1:3100",
   });
-  const api = await startApi(files.paybridge, merchant.url);
+  const api = await startApi({
+    path: files.paybridge,
+    merchantOrigin: merchant.url,
+  });
   const workers: Awaited<ReturnType<typeof startDelivery>>[] = [];
   try {
-    await cancelled(api.url, merchant.url);
+    await cancelled({ url: api.url, merchantOrigin: merchant.url });
     workers.push(
-      await startDelivery(files.paybridge, { held: "after-webhook-claim" }),
-      await startDelivery(files.paybridge, { held: "after-webhook-claim" }),
+      await startDelivery({
+        path: files.paybridge,
+        options: { held: "after-webhook-claim" },
+      }),
+      await startDelivery({
+        path: files.paybridge,
+        options: { held: "after-webhook-claim" },
+      }),
     );
     await Promise.all(workers.map((worker) => worker.start()));
     await expect
       .poll(() =>
-        rows(
-          files.paybridge,
-          "SELECT status,attempt_count FROM webhook_outbox",
-        ),
+        rows({
+          path: files.paybridge,
+          sql: "SELECT status,attempt_count FROM webhook_outbox",
+        }),
       )
       .toEqual([{ status: "PROCESSING", attempt_count: 1 }]);
-    const owner = rows(
-      files.paybridge,
-      "SELECT locked_by FROM webhook_outbox",
-    )[0]?.locked_by;
+    const owner = rows({
+      path: files.paybridge,
+      sql: "SELECT locked_by FROM webhook_outbox",
+    })[0]?.locked_by;
     const winner = workers.find((worker) => worker.workerId === owner);
     if (!winner) throw new Error("Claim owner did not match either worker");
     await winner.message();
-    expect(rows(files.merchant, "SELECT event_id FROM webhook_inbox")).toEqual(
-      [],
-    );
+    expect(
+      rows({ path: files.merchant, sql: "SELECT event_id FROM webhook_inbox" }),
+    ).toEqual([]);
     winner.child.send({ kind: "release" });
     await winner.message();
     await expect
       .poll(() =>
-        rows(
-          files.paybridge,
-          "SELECT status,attempt_count FROM webhook_outbox",
-        ),
+        rows({
+          path: files.paybridge,
+          sql: "SELECT status,attempt_count FROM webhook_outbox",
+        }),
       )
       .toEqual([{ status: "DELIVERED", attempt_count: 1 }]);
     expect(
-      rows(files.merchant, "SELECT event_id FROM webhook_inbox"),
+      rows({ path: files.merchant, sql: "SELECT event_id FROM webhook_inbox" }),
     ).toHaveLength(1);
   } finally {
     await Promise.all(workers.map((worker) => worker.stop()));
@@ -113,14 +131,20 @@ test("completion checks fresh lease time after waiting for write access", async 
     path: files.merchant,
     paybridgeUrl: "http://127.0.0.1:3100",
   });
-  const api = await startApi(files.paybridge, merchant.url);
+  const api = await startApi({
+    path: files.paybridge,
+    merchantOrigin: merchant.url,
+  });
   let worker: Awaited<ReturnType<typeof startDelivery>> | undefined;
   try {
-    await cancelled(api.url, merchant.url);
-    worker = await startDelivery(files.paybridge, {
-      held: "after-webhook-response",
-      timeout: 300,
-      lease: 500,
+    await cancelled({ url: api.url, merchantOrigin: merchant.url });
+    worker = await startDelivery({
+      path: files.paybridge,
+      options: {
+        held: "after-webhook-response",
+        timeout: 300,
+        lease: 500,
+      },
     });
     await worker.start();
     await worker.message();
@@ -139,14 +163,14 @@ test("completion checks fresh lease time after waiting for write access", async 
     });
     await expect
       .poll(() =>
-        rows(
-          files.paybridge,
-          "SELECT status,attempt_count FROM webhook_outbox",
-        ),
+        rows({
+          path: files.paybridge,
+          sql: "SELECT status,attempt_count FROM webhook_outbox",
+        }),
       )
       .toEqual([{ status: "DELIVERED", attempt_count: 2 }]);
     expect(
-      rows(files.merchant, "SELECT event_id FROM webhook_inbox"),
+      rows({ path: files.merchant, sql: "SELECT event_id FROM webhook_inbox" }),
     ).toHaveLength(1);
   } finally {
     await worker?.stop();

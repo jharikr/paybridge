@@ -1,6 +1,7 @@
 import { type } from "arktype";
 import { expect, test } from "vitest";
 import {
+  fourcsRequestInput,
   buildFourcsRequest,
   parseFourcsResponse,
   soapAction,
@@ -36,9 +37,11 @@ test("API and worker SIGKILL before submission recovers the committed attempt an
     hold: "after-claim",
   });
   const { id } = type({ id: "string" }).assert(
-    await (await create(app.url, { merchant: "b", amount: 99 })).json(),
+    await (
+      await create({ url: app.url, options: { merchant: "b", amount: 99 } })
+    ).json(),
   );
-  const ack = await confirm(app.url, id, { merchant: "b" });
+  const ack = await confirm({ url: app.url, id, options: { merchant: "b" } });
   expect(ack.status).toBe(202);
   const bytes = await ack.text();
   const original = identity(files.paybridge);
@@ -58,9 +61,9 @@ test("API and worker SIGKILL before submission recovers the committed attempt an
   });
   try {
     const { url } = ready.assert(await server.message());
-    expect(await (await confirm(url, id, { merchant: "b" })).text()).toBe(
-      bytes,
-    );
+    expect(
+      await (await confirm({ url, id, options: { merchant: "b" } })).text(),
+    ).toBe(bytes);
     await using second = await recoveryWorker({
       path: files.paybridge,
       origin: app.mockUrl,
@@ -68,7 +71,7 @@ test("API and worker SIGKILL before submission recovers the committed attempt an
     await second.advance(Date.parse(abandoned.lease_expires_at) + 1);
     await second.start();
     await expect
-      .poll(() => lookup(url, id, "b"))
+      .poll(() => lookup({ url, id, merchant: "b" }))
       .toMatchObject({
         status: "SUCCEEDED",
         revision: 3,
@@ -105,9 +108,9 @@ test("API and worker SIGKILL before submission recovers the committed attempt an
       "PAYMENT_SUCCEEDED",
     ]);
     expect(saved.webhooks).toHaveLength(1);
-    expect(await (await confirm(url, id, { merchant: "b" })).text()).toBe(
-      bytes,
-    );
+    expect(
+      await (await confirm({ url, id, options: { merchant: "b" } })).text(),
+    ).toBe(bytes);
   } finally {
     await server.stop();
   }
@@ -132,16 +135,16 @@ test.each([
     await using files = await isolatedDatabases();
     await using app = await journey(files);
     const { id } = type({ id: "string" }).assert(
-      await (await create(app.url)).json(),
+      await (await create({ url: app.url })).json(),
     );
-    const ack = await confirm(app.url, id, { fixture });
+    const ack = await confirm({ url: app.url, id, options: { fixture } });
     expect(ack.status).toBe(202);
     const bytes = await ack.text();
     const a = await app.startWorker();
     await expect
-      .poll(() => lookup(app.url, id))
+      .poll(() => lookup({ url: app.url, id }))
       .toMatchObject({ status, revision: 3 });
-    const snapshot = await lookup(app.url, id);
+    const snapshot = await lookup({ url: app.url, id });
     const committed = records(files.paybridge);
     const original = identity(files.paybridge);
     const accepted = ledger(files.mockFourcs);
@@ -172,20 +175,24 @@ test.each([
     try {
       const { url } = ready.assert(await server.message());
       const origin = ready.assert(await mock.message()).url;
-      expect(await lookup(url, id)).toEqual(snapshot);
+      expect(await lookup({ url, id })).toEqual(snapshot);
       expect(records(files.paybridge)).toEqual(committed);
-      expect(await (await confirm(url, id, { fixture })).text()).toBe(bytes);
+      expect(
+        await (await confirm({ url, id, options: { fixture } })).text(),
+      ).toBe(bytes);
       const duplicate = await fetch(`${origin}${soapPath}`, {
         method: "POST",
         headers: { "content-type": "text/xml", soapaction: soapAction },
-        body: buildFourcsRequest({
-          merchantKey: "mock-provider-key-a",
-          tranId: original.provider_transaction_id,
-          invoice: original.provider_invoice,
-          amountMinor: 7500,
-          currency: "XCD",
-          mockPaymentMethodRef: "pm_mock_approved",
-        }),
+        body: buildFourcsRequest(
+          fourcsRequestInput.assert({
+            merchantKey: "mock-provider-key-a",
+            tranId: original.provider_transaction_id,
+            invoice: original.provider_invoice,
+            amountMinor: 7500,
+            currency: "XCD",
+            mockPaymentMethodRef: "pm_mock_approved",
+          }),
+        ),
       });
       expect(duplicate.status).toBe(200);
       expect(parseFourcsResponse(await duplicate.text())).toMatchObject({
@@ -194,22 +201,35 @@ test.each([
       });
       expect(ledger(files.mockFourcs)).toEqual(accepted);
       expect(
-        (await confirm(url, id, { key: "new-after-restart", revision: 3 }))
-          .status,
+        (
+          await confirm({
+            url,
+            id,
+            options: { key: "new-after-restart", revision: 3 },
+          })
+        ).status,
       ).toBe(409);
       await using b = await recoveryWorker({ path: files.paybridge, origin });
       await b.advance(Date.now() + 60000);
       await b.start();
       const marker = type({ id: "string" }).assert(
-        await (await create(url, { key: "restart-marker" })).json(),
+        await (
+          await create({ url, options: { key: "restart-marker" } })
+        ).json(),
       );
       expect(
-        (await confirm(url, marker.id, { key: "marker-confirm" })).status,
+        (
+          await confirm({
+            url,
+            id: marker.id,
+            options: { key: "marker-confirm" },
+          })
+        ).status,
       ).toBe(202);
       await expect
-        .poll(() => lookup(url, marker.id))
+        .poll(() => lookup({ url, id: marker.id }))
         .toMatchObject({ status: "SUCCEEDED", revision: 3 });
-      expect(await lookup(url, id)).toEqual(snapshot);
+      expect(await lookup({ url, id })).toEqual(snapshot);
       const restarted = records(files.paybridge);
       for (const key of [
         "attempts",
@@ -242,10 +262,14 @@ test("SIGKILL after provider acceptance recovers the same identity across API, w
     origin: app.mockUrl,
   });
   const { id } = type({ id: "string" }).assert(
-    await (await create(app.url)).json(),
+    await (await create({ url: app.url })).json(),
   );
-  const ack = await confirm(app.url, id, {
-    fixture: "pm_mock_delayed_response",
+  const ack = await confirm({
+    url: app.url,
+    id,
+    options: {
+      fixture: "pm_mock_delayed_response",
+    },
   });
   expect(ack.status).toBe(202);
   const bytes = await ack.text();
@@ -276,20 +300,24 @@ test("SIGKILL after provider acceptance recovers the same identity across API, w
   try {
     const { url } = ready.assert(await server.message());
     const origin = ready.assert(await mock.message()).url;
-    expect(await lookup(url, id)).toMatchObject({
+    expect(await lookup({ url, id })).toMatchObject({
       status: "PROCESSING",
       revision: 2,
     });
     expect(
       await (
-        await confirm(url, id, { fixture: "pm_mock_delayed_response" })
+        await confirm({
+          url,
+          id,
+          options: { fixture: "pm_mock_delayed_response" },
+        })
       ).text(),
     ).toBe(bytes);
     await using b = await recoveryWorker({ path: files.paybridge, origin });
     await b.advance(Date.parse(abandoned.lease_expires_at) + 1);
     await b.start();
     await expect
-      .poll(() => lookup(url, id))
+      .poll(() => lookup({ url, id }))
       .toMatchObject({
         status: "UNKNOWN",
         revision: 3,
@@ -326,12 +354,21 @@ test("SIGKILL after provider acceptance recovers the same identity across API, w
       "PAYMENT_UNKNOWN",
     ]);
     expect(
-      (await confirm(url, id, { key: "fresh-after-recovery", revision: 3 }))
-        .status,
+      (
+        await confirm({
+          url,
+          id,
+          options: { key: "fresh-after-recovery", revision: 3 },
+        })
+      ).status,
     ).toBe(409);
     expect(
       await (
-        await confirm(url, id, { fixture: "pm_mock_delayed_response" })
+        await confirm({
+          url,
+          id,
+          options: { fixture: "pm_mock_delayed_response" },
+        })
       ).text(),
     ).toBe(bytes);
   } finally {
@@ -354,9 +391,11 @@ test.each(["pm_mock_approved", "pm_mock_malformed"])(
       origin: app.mockUrl,
     });
     const { id } = type({ id: "string" }).assert(
-      await (await create(app.url)).json(),
+      await (await create({ url: app.url })).json(),
     );
-    expect((await confirm(app.url, id, { fixture })).status).toBe(202);
+    expect(
+      (await confirm({ url: app.url, id, options: { fixture } })).status,
+    ).toBe(202);
     const initial = records(files.paybridge);
     const original = identity(files.paybridge);
     await a.start();
@@ -371,7 +410,7 @@ test.each(["pm_mock_approved", "pm_mock_malformed"])(
       { final_outcome: "Approved", effect_count: 1 },
     ]);
     await a.stop();
-    expect(await lookup(app.url, id)).toMatchObject({
+    expect(await lookup({ url: app.url, id })).toMatchObject({
       status: "PROCESSING",
       revision: 2,
       latestAttempt: { status: "PROCESSING" },
@@ -387,7 +426,7 @@ test.each(["pm_mock_approved", "pm_mock_malformed"])(
     await b.advance(Date.parse(abandoned.lease_expires_at) + 1);
     await b.start();
     await expect
-      .poll(() => lookup(app.url, id))
+      .poll(() => lookup({ url: app.url, id }))
       .toMatchObject({ status: "UNKNOWN", revision: 3 });
     expect(identity(files.paybridge)).toEqual(original);
     expect(ledger(files.mockFourcs)).toEqual(accepted);

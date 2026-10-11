@@ -19,7 +19,13 @@ export type ReceiptCheckpoint = (event: {
 class ReceiptError extends Error {
   readonly statusCode: 400 | 401 | 409 | 415;
   readonly code: string;
-  constructor(statusCode: 400 | 401 | 409 | 415, code: string) {
+  constructor({
+    statusCode,
+    code,
+  }: {
+    statusCode: 400 | 401 | 409 | 415;
+    code: string;
+  }) {
     super(code);
     this.statusCode = statusCode;
     this.code = code;
@@ -76,12 +82,18 @@ export async function registerWebhooks({
               ),
             );
           } catch {
-            throw new ReceiptError(415, "invalid_webhook_media_type");
+            throw new ReceiptError({
+              statusCode: 415,
+              code: "invalid_webhook_media_type",
+            });
           }
           if (
             (media.params.get("charset") ?? "utf-8").toLowerCase() !== "utf-8"
           )
-            throw new ReceiptError(415, "invalid_webhook_media_type");
+            throw new ReceiptError({
+              statusCode: 415,
+              code: "invalid_webhook_media_type",
+            });
           const merchant = merchantContext(
             params.assert(request.params).merchantFixture,
           );
@@ -97,7 +109,10 @@ export async function registerWebhooks({
               toleranceSeconds,
             })
           )
-            throw new ReceiptError(401, "invalid_webhook_authentication");
+            throw new ReceiptError({
+              statusCode: 401,
+              code: "invalid_webhook_authentication",
+            });
           let raw: string;
           let value: unknown;
           try {
@@ -107,7 +122,10 @@ export async function registerWebhooks({
             }).decode(body);
             value = JSON.parse(raw);
           } catch {
-            throw new ReceiptError(400, "invalid_webhook_event");
+            throw new ReceiptError({
+              statusCode: 400,
+              code: "invalid_webhook_event",
+            });
           }
           const event = webhookEvent(value);
           if (
@@ -119,7 +137,10 @@ export async function registerWebhooks({
                 : event.createdAt) ||
             request.headers["paybridge-event-id"] !== event.id
           )
-            throw new ReceiptError(400, "invalid_webhook_event");
+            throw new ReceiptError({
+              statusCode: 400,
+              code: "invalid_webhook_event",
+            });
           rawBodies.set(request, raw);
           done(null, event);
         } catch (error) {
@@ -135,14 +156,14 @@ export async function registerWebhooks({
       "/api/webhooks/paybridge/:merchantFixture",
       {
         schema: {
-          params: requestSchema(params),
-          body: requestSchema(
-            webhookEvent.describe(
+          params: requestSchema({ validator: params }),
+          body: requestSchema({
+            validator: webhookEvent.describe(
               "Signed JSON event. Authenticate the exact raw UTF-8 bytes before parsing; whitespace is significant. Maximum 16,384 bytes. createdAt must be a valid UTC calendar timestamp with seconds or exactly three fractional digits. Conflicting duplicate identity fields are invalid.",
             ),
-          ),
-          headers: requestSchema(
-            type({
+          }),
+          headers: requestSchema({
+            validator: type({
               "paybridge-event-id": webhookEventId,
               "paybridge-timestamp": type(/^(0|[1-9][0-9]{0,12})$/).describe(
                 "Unix seconds, within the configured tolerance in both directions. Default 300 seconds.",
@@ -151,8 +172,8 @@ export async function registerWebhooks({
                 "HMAC-SHA256 of timestamp, a period, and exact body bytes, using this destination merchant's secret.",
               ),
             }),
-          ),
-          querystring: requestSchema(type({ "+": "reject" })),
+          }),
+          querystring: requestSchema({ validator: type({ "+": "reject" }) }),
           response: {
             204: {
               type: "null",
@@ -208,12 +229,19 @@ export async function registerWebhooks({
           const stored = await tx.orm.WebhookInbox.where({
             eventId: event.id,
           }).first();
-          if (!stored) throw new ReceiptError(400, "invalid_webhook_event");
+          if (!stored)
+            throw new ReceiptError({
+              statusCode: 400,
+              code: "invalid_webhook_event",
+            });
           if (
             stored.receivingMerchantId !== merchant.id ||
             stored.payload !== payload
           )
-            throw new ReceiptError(409, "webhook_identity_conflict");
+            throw new ReceiptError({
+              statusCode: 409,
+              code: "webhook_identity_conflict",
+            });
           await checkpoint?.({
             kind: "before-receipt-commit",
             eventId: event.id,

@@ -110,7 +110,10 @@ test("the generated SOAP contract matches actual media, action, layered results,
       ).toContain(scenario.result);
     }
     expect(
-      rows(files.mockFourcs, "SELECT tran_id FROM mock_transactions"),
+      rows({
+        path: files.mockFourcs,
+        sql: "SELECT tran_id FROM mock_transactions",
+      }),
     ).toEqual([]);
     for (const result of [
       "<FinancialResultCode>Approved</FinancialResultCode>",
@@ -172,10 +175,10 @@ test("the generated SOAP contract matches actual media, action, layered results,
       }),
     ).toContain("<ResultCode>DuplicateTransaction</ResultCode>");
     expect(
-      rows(
-        files.mockFourcs,
-        "SELECT tran_id,effect_count FROM mock_transactions ORDER BY tran_id",
-      ),
+      rows({
+        path: files.mockFourcs,
+        sql: "SELECT tran_id,effect_count FROM mock_transactions ORDER BY tran_id",
+      }),
     ).toEqual([
       { tran_id: "CONTRACT1", effect_count: 1 },
       { tran_id: "LOST", effect_count: 1 },
@@ -228,10 +231,10 @@ test("an unexpected mock response failure uses its XML 500 contract and preserve
       }),
     ).toContain("<ResultCode>DuplicateTransaction</ResultCode>");
     expect(
-      rows(
-        files.mockFourcs,
-        "SELECT tran_id,final_outcome,effect_count FROM mock_transactions",
-      ),
+      rows({
+        path: files.mockFourcs,
+        sql: "SELECT tran_id,final_outcome,effect_count FROM mock_transactions",
+      }),
     ).toEqual([
       { tran_id: "CONTRACT1", final_outcome: "Approved", effect_count: 1 },
     ]);

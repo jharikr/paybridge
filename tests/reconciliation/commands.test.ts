@@ -13,10 +13,10 @@ import {
 test("trusted commands list and start an investigation without changing UNKNOWN or creating a financial event", async () => {
   await using files = await isolatedDatabases();
   await using app = await journey(files);
-  const { id, reconciliationId, identity } = await unknownPayment(
+  const { id, reconciliationId, identity } = await unknownPayment({
     app,
-    files.paybridge,
-  );
+    path: files.paybridge,
+  });
   const before = records(files.paybridge);
   const listed = await command({
     path: files.paybridge,
@@ -65,7 +65,7 @@ test("trusted commands list and start an investigation without changing UNKNOWN 
   expect(after.attempts).toEqual(before.attempts);
   expect(after.work).toEqual(before.work);
   expect(after.webhooks).toEqual(before.webhooks);
-  expect(await lookup(app.url, id)).toMatchObject({
+  expect(await lookup({ url: app.url, id })).toMatchObject({
     status: "UNKNOWN",
     revision: 3,
   });
@@ -84,15 +84,18 @@ test("trusted commands list and start an investigation without changing UNKNOWN 
 test("strict evidence boundaries reject absent, mismatched, nonfinal and unsafe facts without any final mutation", async () => {
   await using files = await isolatedDatabases();
   await using app = await journey(files);
-  const payment = await unknownPayment(app, files.paybridge);
+  const payment = await unknownPayment({ app, path: files.paybridge });
   const exported = type({ kind: "'recorded'", evidence: "object" }).assert(
-    await inspect(
-      files.mockFourcs,
-      payment.identity.provider_account_ref,
-      payment.identity.provider_transaction_id,
-    ),
+    await inspect({
+      path: files.mockFourcs,
+      account: payment.identity.provider_account_ref,
+      tranId: payment.identity.provider_transaction_id,
+    }),
   );
-  const input = resolutionInput(payment.reconciliationId, exported);
+  const input = resolutionInput({
+    reconciliationId: payment.reconciliationId,
+    evidence: exported,
+  });
   const baseline = records(files.paybridge);
   const invalid = [
     {
@@ -151,15 +154,19 @@ test("strict evidence boundaries reject absent, mismatched, nonfinal and unsafe 
     );
     expect(records(files.paybridge)).toEqual(baseline);
   }
-  expect(await lookup(app.url, payment.id)).toMatchObject({
+  expect(await lookup({ url: app.url, id: payment.id })).toMatchObject({
     status: "UNKNOWN",
     revision: 3,
   });
   expect(
     (
-      await confirm(app.url, payment.id, {
-        key: "no-evidence-retry",
-        revision: 3,
+      await confirm({
+        url: app.url,
+        id: payment.id,
+        options: {
+          key: "no-evidence-retry",
+          revision: 3,
+        },
       })
     ).status,
   ).toBe(409);
@@ -172,7 +179,7 @@ test("strict evidence boundaries reject absent, mismatched, nonfinal and unsafe 
       })
     ).code,
   ).toBe(0);
-  expect(await lookup(app.url, payment.id)).toMatchObject({
+  expect(await lookup({ url: app.url, id: payment.id })).toMatchObject({
     status: "SUCCEEDED",
     revision: 4,
   });
@@ -181,16 +188,16 @@ test("strict evidence boundaries reject absent, mismatched, nonfinal and unsafe 
 test("matching exported approval resolves UNKNOWN atomically and identical decisions replay without new effects", async () => {
   await using files = await isolatedDatabases();
   await using app = await journey(files);
-  const { id, reconciliationId, identity } = await unknownPayment(
+  const { id, reconciliationId, identity } = await unknownPayment({
     app,
-    files.paybridge,
-    { merchant: "b" },
-  );
-  const evidence = await inspect(
-    files.mockFourcs,
-    identity.provider_account_ref,
-    identity.provider_transaction_id,
-  );
+    path: files.paybridge,
+    options: { merchant: "b" },
+  });
+  const evidence = await inspect({
+    path: files.mockFourcs,
+    account: identity.provider_account_ref,
+    tranId: identity.provider_transaction_id,
+  });
   const input = {
     kind: "resolve",
     reconciliationId,
@@ -220,7 +227,7 @@ test("matching exported approval resolves UNKNOWN atomically and identical decis
       resolvedAt: expect.any(String),
     },
   });
-  expect(await lookup(app.url, id, "b")).toMatchObject({
+  expect(await lookup({ url: app.url, id, merchant: "b" })).toMatchObject({
     status: "SUCCEEDED",
     revision: 4,
     latestAttempt: { id: identity.payment_attempt_id, status: "SUCCEEDED" },

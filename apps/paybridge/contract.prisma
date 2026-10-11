@@ -30,12 +30,15 @@ model PaymentIntent {
   checkoutTokenHash String @map("checkout_token_hash")
   createdAt String @map("created_at")
   updatedAt String @map("updated_at")
-  merchant Merchant @relation(fields: [merchantId], references: [id])
+  merchant Merchant @relation(fields: [merchantId], references: [id], index: false)
   events PaymentEvent[]
   attempts PaymentAttempt[]
   webhookWork WebhookOutbox[]
   @@unique([id, merchantId])
   reconciliations Reconciliation[]
+  @@index([merchantId, merchantReference])
+  @@index([merchantId, status])
+  @@index([createdAt])
   @@map("payment_intents")
 }
 
@@ -52,7 +55,7 @@ model Command {
   responseHeaders String? @map("response_headers")
   createdAt String @map("created_at")
   completedAt String? @map("completed_at")
-  merchant Merchant @relation(fields: [merchantId], references: [id])
+  merchant Merchant @relation(fields: [merchantId], references: [id], index: false)
   @@id([merchantId, key])
   @@map("idempotency_keys")
 }
@@ -69,8 +72,9 @@ model PaymentEvent {
   actorId String @map("actor_id")
   metadata String
   createdAt String @map("created_at")
-  payment PaymentIntent @relation(fields: [paymentIntentId], references: [id])
+  payment PaymentIntent @relation(fields: [paymentIntentId], references: [id], index: false)
   webhookWork WebhookOutbox[]
+  @@index([paymentIntentId, createdAt])
   @@map("payment_events")
 }
 
@@ -92,7 +96,7 @@ model PaymentAttempt {
   failureMessage String? @map("failure_message")
   createdAt String @map("created_at")
   updatedAt String @map("updated_at")
-  payment PaymentIntent @relation(fields: [paymentIntentId], references: [id])
+  payment PaymentIntent @relation(fields: [paymentIntentId], references: [id], index: false)
   providerWork ProviderOutbox[]
   reconciliations Reconciliation[]
   @@unique([paymentIntentId, attemptNumber])
@@ -135,7 +139,7 @@ model WebhookOutbox {
   claimToken String? @map("claim_token")
   lockedBy String? @map("locked_by")
   leaseExpiresAt String? @map("lease_expires_at")
-  merchant Merchant @relation(fields: [merchantId], references: [id])
+  merchant Merchant @relation(fields: [merchantId], references: [id], index: false)
   payment PaymentIntent @relation(fields: [paymentIntentId], references: [id])
   event PaymentEvent @relation(fields: [paymentEventId], references: [id])
   @@index([status, nextAttemptAt])

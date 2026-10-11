@@ -18,28 +18,37 @@ test.each([
       path: files.merchant,
       paybridgeUrl: "http://127.0.0.1:3100",
     });
-    const api = await startApi(files.paybridge, merchant.url);
+    const api = await startApi({
+      path: files.paybridge,
+      merchantOrigin: merchant.url,
+    });
     let first: Awaited<ReturnType<typeof startDelivery>> | undefined;
     let second: Awaited<ReturnType<typeof startDelivery>> | undefined;
     try {
-      await cancelled(api.url, merchant.url);
-      const original = rows(
-        files.paybridge,
-        "SELECT payment_event_id,payload FROM webhook_outbox",
-      );
-      first = await startDelivery(files.paybridge, { held });
+      await cancelled({ url: api.url, merchantOrigin: merchant.url });
+      const original = rows({
+        path: files.paybridge,
+        sql: "SELECT payment_event_id,payload FROM webhook_outbox",
+      });
+      first = await startDelivery({ path: files.paybridge, options: { held } });
       await first.start();
       expect(type({ kind: "string" }).assert(await first.message()).kind).toBe(
         held,
       );
       const claim = type({ lease_expires_at: "string" }).assert(
-        rows(files.paybridge, "SELECT lease_expires_at FROM webhook_outbox")[0],
+        rows({
+          path: files.paybridge,
+          sql: "SELECT lease_expires_at FROM webhook_outbox",
+        })[0],
       );
       expect(
-        rows(files.merchant, "SELECT event_id FROM webhook_inbox"),
+        rows({
+          path: files.merchant,
+          sql: "SELECT event_id FROM webhook_inbox",
+        }),
       ).toHaveLength(held === "after-webhook-claim" ? 0 : 1);
       await first.stop();
-      second = await startDelivery(files.paybridge);
+      second = await startDelivery({ path: files.paybridge });
       second.child.send({
         kind: "advance",
         epochMs: Date.parse(claim.lease_expires_at) + 1,
@@ -48,23 +57,29 @@ test.each([
       await second.start();
       await expect
         .poll(() =>
-          rows(
-            files.paybridge,
-            "SELECT status,attempt_count FROM webhook_outbox",
-          ),
+          rows({
+            path: files.paybridge,
+            sql: "SELECT status,attempt_count FROM webhook_outbox",
+          }),
         )
         .toEqual([{ status: "DELIVERED", attempt_count: 2 }]);
       expect(
-        rows(
-          files.paybridge,
-          "SELECT payment_event_id,payload FROM webhook_outbox",
-        ),
+        rows({
+          path: files.paybridge,
+          sql: "SELECT payment_event_id,payload FROM webhook_outbox",
+        }),
       ).toEqual(original);
       expect(
-        rows(files.merchant, "SELECT payload,status FROM webhook_inbox"),
+        rows({
+          path: files.merchant,
+          sql: "SELECT payload,status FROM webhook_inbox",
+        }),
       ).toEqual([{ payload: original[0]?.payload, status: "PENDING" }]);
       expect(
-        rows(files.paybridge, "SELECT status,revision FROM payment_intents"),
+        rows({
+          path: files.paybridge,
+          sql: "SELECT status,revision FROM payment_intents",
+        }),
       ).toEqual([{ status: "CANCELLED", revision: 2 }]);
     } finally {
       await first?.stop();
@@ -93,13 +108,19 @@ test.each(["success", "failure"])(
     const { port } = type({ port: "number" }).assert(endpoint.address());
     const origin =
       outcome === "success" ? merchant.url : `http://127.0.0.1:${port}`;
-    const api = await startApi(files.paybridge, origin);
+    const api = await startApi({
+      path: files.paybridge,
+      merchantOrigin: origin,
+    });
     let a: Awaited<ReturnType<typeof startDelivery>> | undefined;
     let b: Awaited<ReturnType<typeof startDelivery>> | undefined;
     try {
-      await cancelled(api.url, origin);
-      a = await startDelivery(files.paybridge, {
-        held: "after-webhook-response",
+      await cancelled({ url: api.url, merchantOrigin: origin });
+      a = await startDelivery({
+        path: files.paybridge,
+        options: {
+          held: "after-webhook-response",
+        },
       });
       await a.start();
       await a.message();
@@ -107,13 +128,16 @@ test.each(["success", "failure"])(
         lease_expires_at: "string",
         claim_token: "string",
       }).assert(
-        rows(
-          files.paybridge,
-          "SELECT lease_expires_at,claim_token FROM webhook_outbox",
-        )[0],
+        rows({
+          path: files.paybridge,
+          sql: "SELECT lease_expires_at,claim_token FROM webhook_outbox",
+        })[0],
       );
-      b = await startDelivery(files.paybridge, {
-        held: "after-webhook-response",
+      b = await startDelivery({
+        path: files.paybridge,
+        options: {
+          held: "after-webhook-response",
+        },
       });
       b.child.send({
         kind: "advance",
@@ -122,10 +146,10 @@ test.each(["success", "failure"])(
       await b.message();
       await b.start();
       await b.message();
-      const current = rows(
-        files.paybridge,
-        "SELECT status,claim_token,locked_by,lease_expires_at,attempt_count FROM webhook_outbox",
-      );
+      const current = rows({
+        path: files.paybridge,
+        sql: "SELECT status,claim_token,locked_by,lease_expires_at,attempt_count FROM webhook_outbox",
+      });
       expect(current[0]?.status).toBe("PROCESSING");
       expect(current[0]?.claim_token).not.toBe(old.claim_token);
       a.child.send({ kind: "release" });
@@ -134,23 +158,26 @@ test.each(["success", "failure"])(
         "webhook_stale_completion",
       );
       expect(
-        rows(
-          files.paybridge,
-          "SELECT status,claim_token,locked_by,lease_expires_at,attempt_count FROM webhook_outbox",
-        ),
+        rows({
+          path: files.paybridge,
+          sql: "SELECT status,claim_token,locked_by,lease_expires_at,attempt_count FROM webhook_outbox",
+        }),
       ).toEqual(current);
       b.child.send({ kind: "release" });
       await b.message();
       await expect
         .poll(() =>
-          rows(
-            files.paybridge,
-            "SELECT status,attempt_count FROM webhook_outbox",
-          ),
+          rows({
+            path: files.paybridge,
+            sql: "SELECT status,attempt_count FROM webhook_outbox",
+          }),
         )
         .toEqual([{ status: "DELIVERED", attempt_count: 2 }]);
       expect(
-        rows(files.merchant, "SELECT event_id FROM webhook_inbox"),
+        rows({
+          path: files.merchant,
+          sql: "SELECT event_id FROM webhook_inbox",
+        }),
       ).toHaveLength(outcome === "success" ? 1 : 0);
     } finally {
       await a?.stop();

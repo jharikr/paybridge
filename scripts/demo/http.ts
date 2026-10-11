@@ -56,7 +56,10 @@ export async function readPayment({
     headers: { authorization: `Bearer ${credential(merchant)}` },
     signal: AbortSignal.timeout(5000),
   });
-  requireDemo(response.status === 200, "payment_lookup_failed");
+  requireDemo({
+    condition: response.status === 200,
+    code: "payment_lookup_failed",
+  });
   return paymentSnapshot.assert(await response.json());
 }
 
@@ -74,37 +77,56 @@ export async function createBoundOrder({
     path: `/${merchant}/orders`,
     body: { businessReference: reference, amount: 7500, currency: "XCD" },
   });
-  requireDemo(created.status === 201, "order_creation_failed");
+  requireDemo({
+    condition: created.status === 201,
+    code: "order_creation_failed",
+  });
   const order = orderView.assert(await created.json());
   const path = `/${merchant}/orders/${order.id}`;
   const response = await post({ origin, path: `${path}/payment` });
-  requireDemo(response.status === 201, "payment_creation_failed");
+  requireDemo({
+    condition: response.status === 201,
+    code: "payment_creation_failed",
+  });
   const bytes = await response.text();
   const payment = creationAcknowledgment.assert(JSON.parse(bytes));
   const replay = await post({ origin, path: `${path}/payment` });
-  requireDemo(
-    replay.status === 201 &&
+  requireDemo({
+    condition:
+      replay.status === 201 &&
       (await replay.text()) === bytes &&
       replay.headers.get("x-merchant-command-id") ===
         response.headers.get("x-merchant-command-id"),
-    "creation_replay_changed",
-  );
+    code: "creation_replay_changed",
+  });
   return { merchant, path, payment, order, creationBytes: bytes };
 }
 export type BoundOrder = Awaited<ReturnType<typeof createBoundOrder>>;
 
-export async function readOrder(origin: string, order: BoundOrder) {
+export async function readOrder({
+  origin,
+  order,
+}: {
+  origin: string;
+  order: BoundOrder;
+}) {
   const response = await fetch(`${origin}${order.path}`, {
     signal: AbortSignal.timeout(5000),
   });
-  requireDemo(response.status === 200, "order_lookup_failed");
+  requireDemo({
+    condition: response.status === 200,
+    code: "order_lookup_failed",
+  });
   return orderView.assert(await response.json());
 }
 
-export function checkoutPath(
-  order: BoundOrder,
-  operation: "confirm" | "leave",
-) {
+export function checkoutPath({
+  order,
+  operation,
+}: {
+  order: BoundOrder;
+  operation: "confirm" | "leave";
+}) {
   const url = new URL(order.payment.checkoutUrl);
   url.pathname += `/${operation}`;
   return url.href;

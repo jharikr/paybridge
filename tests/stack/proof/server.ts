@@ -40,17 +40,20 @@ app.post<{ Params: typeof params.infer; Body: typeof body.infer }>(
   "/proof/:id",
   {
     schema: {
-      params: requestSchema(params),
-      body: requestSchema(body, {
-        fallback: {
-          predicate: ({ base }) => ({
-            ...base,
-            description:
-              "Runtime rules: the label must contain at most 80 UTF-16 code units and have no leading or trailing whitespace. JSON Schema length counts Unicode code points.",
-          }),
+      params: requestSchema({ validator: params }),
+      body: requestSchema({
+        validator: body,
+        options: {
+          fallback: {
+            predicate: ({ base }) => ({
+              ...base,
+              description:
+                "Runtime rules: the label must contain at most 80 UTF-16 code units and have no leading or trailing whitespace. JSON Schema length counts Unicode code points.",
+            }),
+          },
         },
       }),
-      headers: requestSchema(headers),
+      headers: requestSchema({ validator: headers }),
       response: { 201: record.toJsonSchema(), ...errors },
     },
   },
@@ -71,7 +74,7 @@ app.get<{ Params: typeof params.infer }>(
   "/proof/:id",
   {
     schema: {
-      params: requestSchema(params),
+      params: requestSchema({ validator: params }),
       response: {
         200: record.toJsonSchema(),
         404: errorResponse.toJsonSchema(),

@@ -1,3 +1,4 @@
+import { safeFailure, type SafeFailure } from "../../contracts/diagnostics.ts";
 import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { type } from "arktype";
@@ -193,11 +194,13 @@ export async function runInboxWorker({
   checkpoint?: InboxCheckpoint;
   diagnostic: (value: {
     code: string;
+    failure?: SafeFailure;
     workerId: string;
     eventId?: string;
   }) => void;
 }) {
   while (!signal.aborted) {
+    let operation: SafeFailure["operation"] = "inbox_claim";
     let eventId: string | undefined;
     try {
       const claim = await claimWork({ db, workerId, config, now });
@@ -205,7 +208,9 @@ export async function runInboxWorker({
         eventId = claim.eventId;
         await checkpoint?.({ kind: "after-inbox-claim", eventId });
         let code: string | null;
+        let failure: SafeFailure | undefined;
         try {
+          operation = "inbox_application";
           code = await processClaim({
             db,
             claim,
@@ -214,7 +219,9 @@ export async function runInboxWorker({
             now,
             ...(checkpoint ? { checkpoint } : {}),
           });
-        } catch {
+        } catch (cause) {
+          failure = safeFailure({ operation, cause });
+          operation = "inbox_retry";
           code = await db.transaction(async (tx) => {
             const at = await lockClaim({ db, tx, claim, workerId, now });
             if (at === null) return "inbox_claim_lost";
@@ -230,10 +237,17 @@ export async function runInboxWorker({
           });
         }
         await checkpoint?.({ kind: "after-inbox-completion", eventId });
-        if (code) diagnostic({ code, workerId, eventId });
+        if (code)
+          diagnostic({
+            code,
+            workerId,
+            eventId,
+            ...(failure ? { failure } : {}),
+          });
       }
     } catch (cause) {
       diagnostic({
+        failure: safeFailure({ operation, cause }),
         code:
           cause instanceof Error &&
           "transient" in cause &&

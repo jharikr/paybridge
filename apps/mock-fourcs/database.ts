@@ -1,3 +1,4 @@
+import { safeFailure } from "../../contracts/diagnostics.ts";
 import { createHash, randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { createSqliteControlClient } from "@prisma/orm-sqlite/control";
@@ -14,7 +15,11 @@ export async function openMockDatabase({ path }: { path: string }) {
       contract: contractJson,
       migrationsDir: fileURLToPath(new URL("./migrations", import.meta.url)),
     });
-    if (!result.ok) throw new Error("Mock ledger migration failed");
+    if (!result.ok) throw result.failure;
+  } catch (cause) {
+    throw new Error("Database migration failed", {
+      cause: safeFailure({ operation: "mock_migration", cause }),
+    });
   } finally {
     await control.close();
   }

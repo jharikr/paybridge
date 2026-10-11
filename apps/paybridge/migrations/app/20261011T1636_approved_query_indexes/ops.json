@@ -1,0 +1,371 @@
+[
+  {
+    "id": "index.payment_events.payment_events_payment_intent_id_created_at_idx_e9f35b8e",
+    "label": "Create index payment_events_payment_intent_id_created_at_idx_e9f35b8e on payment_events",
+    "summary": "Creates index payment_events_payment_intent_id_created_at_idx_e9f35b8e on payment_events",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "index",
+        "name": "payment_events_payment_intent_id_created_at_idx_e9f35b8e",
+        "table": "payment_events"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"payment_events_payment_intent_id_created_at_idx_e9f35b8e\" is missing",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "payment_events_payment_intent_id_created_at_idx_e9f35b8e"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"payment_events_payment_intent_id_created_at_idx_e9f35b8e\"",
+        "sql": "CREATE INDEX \"payment_events_payment_intent_id_created_at_idx_e9f35b8e\" ON \"payment_events\" (\"payment_intent_id\", \"created_at\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"payment_events_payment_intent_id_created_at_idx_e9f35b8e\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "payment_events_payment_intent_id_created_at_idx_e9f35b8e"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.payment_intents.payment_intents_created_at_idx_225d8c0f",
+    "label": "Create index payment_intents_created_at_idx_225d8c0f on payment_intents",
+    "summary": "Creates index payment_intents_created_at_idx_225d8c0f on payment_intents",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "index",
+        "name": "payment_intents_created_at_idx_225d8c0f",
+        "table": "payment_intents"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"payment_intents_created_at_idx_225d8c0f\" is missing",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "payment_intents_created_at_idx_225d8c0f"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"payment_intents_created_at_idx_225d8c0f\"",
+        "sql": "CREATE INDEX \"payment_intents_created_at_idx_225d8c0f\" ON \"payment_intents\" (\"created_at\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"payment_intents_created_at_idx_225d8c0f\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "payment_intents_created_at_idx_225d8c0f"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.payment_intents.payment_intents_merchant_id_merchant_reference_idx_560fb5c7",
+    "label": "Create index payment_intents_merchant_id_merchant_reference_idx_560fb5c7 on payment_intents",
+    "summary": "Creates index payment_intents_merchant_id_merchant_reference_idx_560fb5c7 on payment_intents",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "index",
+        "name": "payment_intents_merchant_id_merchant_reference_idx_560fb5c7",
+        "table": "payment_intents"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"payment_intents_merchant_id_merchant_reference_idx_560fb5c7\" is missing",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "payment_intents_merchant_id_merchant_reference_idx_560fb5c7"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"payment_intents_merchant_id_merchant_reference_idx_560fb5c7\"",
+        "sql": "CREATE INDEX \"payment_intents_merchant_id_merchant_reference_idx_560fb5c7\" ON \"payment_intents\" (\"merchant_id\", \"merchant_reference\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"payment_intents_merchant_id_merchant_reference_idx_560fb5c7\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "payment_intents_merchant_id_merchant_reference_idx_560fb5c7"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.payment_intents.payment_intents_merchant_id_status_idx_06a43d97",
+    "label": "Create index payment_intents_merchant_id_status_idx_06a43d97 on payment_intents",
+    "summary": "Creates index payment_intents_merchant_id_status_idx_06a43d97 on payment_intents",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "index",
+        "name": "payment_intents_merchant_id_status_idx_06a43d97",
+        "table": "payment_intents"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"payment_intents_merchant_id_status_idx_06a43d97\" is missing",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "payment_intents_merchant_id_status_idx_06a43d97"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"payment_intents_merchant_id_status_idx_06a43d97\"",
+        "sql": "CREATE INDEX \"payment_intents_merchant_id_status_idx_06a43d97\" ON \"payment_intents\" (\"merchant_id\", \"status\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"payment_intents_merchant_id_status_idx_06a43d97\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "payment_intents_merchant_id_status_idx_06a43d97"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "dropIndex.idempotency_keys.idempotency_keys_merchant_id_idx_92be5ce7",
+    "label": "Drop index idempotency_keys_merchant_id_idx_92be5ce7 on idempotency_keys",
+    "summary": "Drops index idempotency_keys_merchant_id_idx_92be5ce7 on idempotency_keys which is not in the contract",
+    "operationClass": "destructive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "index",
+        "name": "idempotency_keys_merchant_id_idx_92be5ce7",
+        "table": "idempotency_keys"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"idempotency_keys_merchant_id_idx_92be5ce7\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "idempotency_keys_merchant_id_idx_92be5ce7"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "drop index \"idempotency_keys_merchant_id_idx_92be5ce7\"",
+        "sql": "DROP INDEX IF EXISTS \"idempotency_keys_merchant_id_idx_92be5ce7\""
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"idempotency_keys_merchant_id_idx_92be5ce7\" is gone",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "idempotency_keys_merchant_id_idx_92be5ce7"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "dropIndex.payment_attempts.payment_attempts_payment_intent_id_idx_2dc6a9d2",
+    "label": "Drop index payment_attempts_payment_intent_id_idx_2dc6a9d2 on payment_attempts",
+    "summary": "Drops index payment_attempts_payment_intent_id_idx_2dc6a9d2 on payment_attempts which is not in the contract",
+    "operationClass": "destructive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "index",
+        "name": "payment_attempts_payment_intent_id_idx_2dc6a9d2",
+        "table": "payment_attempts"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"payment_attempts_payment_intent_id_idx_2dc6a9d2\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "payment_attempts_payment_intent_id_idx_2dc6a9d2"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "drop index \"payment_attempts_payment_intent_id_idx_2dc6a9d2\"",
+        "sql": "DROP INDEX IF EXISTS \"payment_attempts_payment_intent_id_idx_2dc6a9d2\""
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"payment_attempts_payment_intent_id_idx_2dc6a9d2\" is gone",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "payment_attempts_payment_intent_id_idx_2dc6a9d2"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "dropIndex.payment_events.payment_events_payment_intent_id_idx_2dc6a9d2",
+    "label": "Drop index payment_events_payment_intent_id_idx_2dc6a9d2 on payment_events",
+    "summary": "Drops index payment_events_payment_intent_id_idx_2dc6a9d2 on payment_events which is not in the contract",
+    "operationClass": "destructive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "index",
+        "name": "payment_events_payment_intent_id_idx_2dc6a9d2",
+        "table": "payment_events"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"payment_events_payment_intent_id_idx_2dc6a9d2\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "payment_events_payment_intent_id_idx_2dc6a9d2"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "drop index \"payment_events_payment_intent_id_idx_2dc6a9d2\"",
+        "sql": "DROP INDEX IF EXISTS \"payment_events_payment_intent_id_idx_2dc6a9d2\""
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"payment_events_payment_intent_id_idx_2dc6a9d2\" is gone",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "payment_events_payment_intent_id_idx_2dc6a9d2"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "dropIndex.payment_intents.payment_intents_merchant_id_idx_92be5ce7",
+    "label": "Drop index payment_intents_merchant_id_idx_92be5ce7 on payment_intents",
+    "summary": "Drops index payment_intents_merchant_id_idx_92be5ce7 on payment_intents which is not in the contract",
+    "operationClass": "destructive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "index",
+        "name": "payment_intents_merchant_id_idx_92be5ce7",
+        "table": "payment_intents"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"payment_intents_merchant_id_idx_92be5ce7\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "payment_intents_merchant_id_idx_92be5ce7"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "drop index \"payment_intents_merchant_id_idx_92be5ce7\"",
+        "sql": "DROP INDEX IF EXISTS \"payment_intents_merchant_id_idx_92be5ce7\""
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"payment_intents_merchant_id_idx_92be5ce7\" is gone",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "payment_intents_merchant_id_idx_92be5ce7"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "dropIndex.webhook_outbox.webhook_outbox_merchant_id_idx_92be5ce7",
+    "label": "Drop index webhook_outbox_merchant_id_idx_92be5ce7 on webhook_outbox",
+    "summary": "Drops index webhook_outbox_merchant_id_idx_92be5ce7 on webhook_outbox which is not in the contract",
+    "operationClass": "destructive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "index",
+        "name": "webhook_outbox_merchant_id_idx_92be5ce7",
+        "table": "webhook_outbox"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"webhook_outbox_merchant_id_idx_92be5ce7\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "webhook_outbox_merchant_id_idx_92be5ce7"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "drop index \"webhook_outbox_merchant_id_idx_92be5ce7\"",
+        "sql": "DROP INDEX IF EXISTS \"webhook_outbox_merchant_id_idx_92be5ce7\""
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"webhook_outbox_merchant_id_idx_92be5ce7\" is gone",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "webhook_outbox_merchant_id_idx_92be5ce7"
+        ]
+      }
+    ]
+  }
+]

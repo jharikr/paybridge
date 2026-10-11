@@ -18,13 +18,16 @@ const headers = {
   authorization: "Bearer mock-paybridge-key-a",
   "content-type": "application/json",
 };
-async function launch(
-  path: string,
+async function launch({
+  path,
+  fault,
+}: {
+  path: string;
   fault?: {
     operation: "confirm" | "cancel";
     kind: "rollback" | "before-commit" | "after-commit";
-  },
-) {
+  };
+}) {
   const server = startNodeProcess({
     entrypoint: fault ? fixture : entrypoint,
     args: fault ? [path, fault.operation, fault.kind] : [path, "0"],
@@ -36,7 +39,13 @@ async function launch(
     throw error;
   }
 }
-async function create(url: string, key = "create-1") {
+async function create({
+  url,
+  key = "create-1",
+}: {
+  url: string;
+  key?: string;
+}) {
   const response = await fetch(`${url}/v1/payment-intents`, {
     method: "POST",
     headers: { ...headers, "idempotency-key": key },
@@ -50,7 +59,15 @@ async function create(url: string, key = "create-1") {
   expect(response.status).toBe(201);
   return created.assert(await response.json()).id;
 }
-function confirm(url: string, id: string, key = "confirm-1") {
+function confirm({
+  url,
+  id,
+  key = "confirm-1",
+}: {
+  url: string;
+  id: string;
+  key?: string;
+}) {
   return fetch(`${url}/v1/payment-intents/${id}/confirm`, {
     method: "POST",
     headers: { ...headers, "idempotency-key": key },
@@ -60,7 +77,7 @@ function confirm(url: string, id: string, key = "confirm-1") {
     }),
   });
 }
-function cancel(url: string, id: string) {
+function cancel({ url, id }: { url: string; id: string }) {
   return fetch(`${url}/v1/payment-intents/${id}/cancel`, {
     method: "POST",
     headers: { authorization: headers.authorization },
@@ -100,13 +117,13 @@ function state(path: string) {
 
 test("concurrent identical confirmations replay one durable acceptance across processes", async () => {
   await using files = await isolatedDatabases();
-  const first = await launch(files.paybridge);
-  const second = await launch(files.paybridge);
+  const first = await launch({ path: files.paybridge });
+  const second = await launch({ path: files.paybridge });
   try {
-    const id = await create(first.url);
+    const id = await create({ url: first.url });
     const responses = await Promise.all(
       Array.from({ length: 12 }, (_, index) =>
-        confirm(index % 2 ? first.url : second.url, id),
+        confirm({ url: index % 2 ? first.url : second.url, id }),
       ),
     );
     expect(responses.map((response) => response.status)).toEqual(
@@ -135,17 +152,17 @@ test("concurrent identical confirmations replay one durable acceptance across pr
 
 test("different-key confirmations based on one revision accept one attempt and roll back losing reservations", async () => {
   await using files = await isolatedDatabases();
-  const first = await launch(files.paybridge);
-  const second = await launch(files.paybridge);
+  const first = await launch({ path: files.paybridge });
+  const second = await launch({ path: files.paybridge });
   try {
-    const id = await create(first.url);
+    const id = await create({ url: first.url });
     const responses = await Promise.all(
       Array.from({ length: 12 }, (_, index) =>
-        confirm(
-          index % 2 ? first.url : second.url,
+        confirm({
+          url: index % 2 ? first.url : second.url,
           id,
-          `confirmation-${index}`,
-        ),
+          key: `confirmation-${index}`,
+        }),
       ),
     );
     expect(
@@ -173,13 +190,13 @@ test("different-key confirmations based on one revision accept one attempt and r
 
 test("racing merchant cancellation and confirmation commits only the winning transition", async () => {
   await using files = await isolatedDatabases();
-  const first = await launch(files.paybridge);
-  const second = await launch(files.paybridge);
+  const first = await launch({ path: files.paybridge });
+  const second = await launch({ path: files.paybridge });
   try {
-    const id = await create(first.url);
+    const id = await create({ url: first.url });
     const [confirmation, cancellation] = await Promise.all([
-      confirm(first.url, id),
-      cancel(second.url, id),
+      confirm({ url: first.url, id }),
+      cancel({ url: second.url, id }),
     ]);
     const retained = state(files.paybridge);
     if (confirmation.status === 202) {
@@ -222,14 +239,17 @@ test("racing merchant cancellation and confirmation commits only the winning tra
 for (const operation of ["confirm", "cancel"] as const) {
   test(`${operation} rollback retains the original payment and leaves no partial work`, async () => {
     await using files = await isolatedDatabases();
-    const server = await launch(files.paybridge, {
-      operation,
-      kind: "rollback",
+    const server = await launch({
+      path: files.paybridge,
+      fault: {
+        operation,
+        kind: "rollback",
+      },
     });
     try {
-      const id = await create(server.url);
+      const id = await create({ url: server.url });
       const command = operation === "confirm" ? confirm : cancel;
-      const failed = await command(server.url, id);
+      const failed = await command({ url: server.url, id });
       expect(failed.status).toBe(500);
       await compareResponse({
         contract: await contractAt(server.url),
@@ -251,7 +271,7 @@ for (const operation of ["confirm", "cancel"] as const) {
         events: [{ type: "PAYMENT_CREATED", intent_revision: 1 }],
         webhooks: [],
       });
-      const retried = await command(server.url, id);
+      const retried = await command({ url: server.url, id });
       expect(retried.status).toBe(operation === "confirm" ? 202 : 200);
       expect(state(files.paybridge).payments).toEqual([
         {
@@ -270,20 +290,23 @@ for (const operation of ["confirm", "cancel"] as const) {
 
 test("a killed precommit confirmation releases bounded contention without retaining an attempt or command key", async () => {
   await using files = await isolatedDatabases();
-  const held = await launch(files.paybridge, {
-    operation: "confirm",
-    kind: "before-commit",
+  const held = await launch({
+    path: files.paybridge,
+    fault: {
+      operation: "confirm",
+      kind: "before-commit",
+    },
   });
-  const other = await launch(files.paybridge);
+  const other = await launch({ path: files.paybridge });
   try {
-    const id = await create(held.url);
-    const interrupted = confirm(held.url, id).then(
+    const id = await create({ url: held.url });
+    const interrupted = confirm({ url: held.url, id }).then(
       () => "unexpected-response",
       () => "connection-lost",
     );
     expect(await held.message()).toEqual({ kind: "before-commit" });
     const started = performance.now();
-    const blocked = await confirm(other.url, id);
+    const blocked = await confirm({ url: other.url, id });
     const blockedResponse = blocked.clone();
     expect(blocked.status).toBe(503);
     expect(blocked.headers.get("retry-after")).toBe("1");
@@ -311,7 +334,7 @@ test("a killed precommit confirmation releases bounded contention without retain
       events: [{ type: "PAYMENT_CREATED", intent_revision: 1 }],
       webhooks: [],
     });
-    expect((await confirm(other.url, id)).status).toBe(202);
+    expect((await confirm({ url: other.url, id })).status).toBe(202);
     expect(state(files.paybridge).attempts).toHaveLength(1);
     expect(
       state(files.paybridge).commands.map((row) => [row.key, row.status]),
@@ -326,16 +349,19 @@ test("a killed precommit confirmation releases bounded contention without retain
 
 test("a lost confirmation acknowledgment replays its exact committed attempt after process restart", async () => {
   await using files = await isolatedDatabases();
-  const original = await launch(files.paybridge, {
-    operation: "confirm",
-    kind: "after-commit",
+  const original = await launch({
+    path: files.paybridge,
+    fault: {
+      operation: "confirm",
+      kind: "after-commit",
+    },
   });
   let id = "";
   let cached = "";
   let committed: ReturnType<typeof state>;
   try {
-    id = await create(original.url);
-    const lost = confirm(original.url, id).then(
+    id = await create({ url: original.url });
+    const lost = confirm({ url: original.url, id }).then(
       () => "unexpected-response",
       () => "connection-lost",
     );
@@ -358,9 +384,9 @@ test("a lost confirmation acknowledgment replays its exact committed attempt aft
   } finally {
     await original.stop();
   }
-  const restarted = await launch(files.paybridge);
+  const restarted = await launch({ path: files.paybridge });
   try {
-    const replay = await confirm(restarted.url, id);
+    const replay = await confirm({ url: restarted.url, id });
     expect(replay.status).toBe(202);
     expect(replay.headers.get("location")).toBe(`/v1/payment-intents/${id}`);
     expect(await replay.text()).toBe(cached);
@@ -373,15 +399,18 @@ test("a lost confirmation acknowledgment replays its exact committed attempt aft
 
 test("a cancellation committed before a lost response retains exactly one webhook after restart", async () => {
   await using files = await isolatedDatabases();
-  const original = await launch(files.paybridge, {
-    operation: "cancel",
-    kind: "after-commit",
+  const original = await launch({
+    path: files.paybridge,
+    fault: {
+      operation: "cancel",
+      kind: "after-commit",
+    },
   });
   let id = "";
   let committed: ReturnType<typeof state>;
   try {
-    id = await create(original.url);
-    const lost = cancel(original.url, id).then(
+    id = await create({ url: original.url });
+    const lost = cancel({ url: original.url, id }).then(
       () => "unexpected-response",
       () => "connection-lost",
     );
@@ -392,9 +421,9 @@ test("a cancellation committed before a lost response retains exactly one webhoo
   } finally {
     await original.stop();
   }
-  const restarted = await launch(files.paybridge);
+  const restarted = await launch({ path: files.paybridge });
   try {
-    const repeated = await cancel(restarted.url, id);
+    const repeated = await cancel({ url: restarted.url, id });
     expect(repeated.status).toBe(200);
     expect(await repeated.json()).toMatchObject({
       status: "CANCELLED",

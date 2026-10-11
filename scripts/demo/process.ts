@@ -11,18 +11,26 @@ export class DemoFailure extends Error {
   }
 }
 
-export function requireDemo(
-  condition: unknown,
-  code: string,
-): asserts condition {
+export function requireDemo<T>({
+  condition,
+  code,
+}: {
+  condition: T;
+  code: string;
+}) {
   if (!condition) throw new DemoFailure(code);
+  return condition;
 }
 
-export async function waitFor<T>(
-  read: () => Promise<T> | T,
-  accepts: (value: T) => boolean,
-  code: string,
-) {
+export async function waitFor<T>({
+  read,
+  accepts,
+  code,
+}: {
+  read: () => Promise<T> | T;
+  accepts: (value: T) => boolean;
+  code: string;
+}) {
   const deadline = Date.now() + 15_000;
   while (Date.now() < deadline) {
     const value = await read();

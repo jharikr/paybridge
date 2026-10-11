@@ -11,7 +11,10 @@ import {
   confirmationAcknowledgment,
 } from "../../contracts/payments.ts";
 import { registerCheckout } from "./checkout.ts";
-import { sendConfirmationResult } from "./confirmation-response.ts";
+import {
+  sendConfirmationResult,
+  sendCommandResult,
+} from "./confirmation-response.ts";
 import type { PaybridgeDatabase } from "./database.ts";
 import { authenticateMerchant } from "./merchants.ts";
 import { confirmPayment, cancelPayment } from "./payment-commands.ts";
@@ -87,13 +90,21 @@ export async function createPaybridgeApp({
       },
     },
   };
-  const noQuery = requestSchema(type({ "+": "reject" }));
+  const noQuery = requestSchema({ validator: type({ "+": "reject" }) });
   app.addHook("onRequest", async (_request, reply) => {
     reply
       .header("cache-control", "no-store")
       .header("x-content-type-options", "nosniff");
   });
-  const error = (code: string, message: string, requestId: string) => ({
+  const error = ({
+    code,
+    message,
+    requestId,
+  }: {
+    code: string;
+    message: string;
+    requestId: string;
+  }) => ({
     error: { code, message, requestId },
   });
   const fallbackErrorHandler = app.errorHandler;
@@ -107,11 +118,12 @@ export async function createPaybridgeApp({
         .code(503)
         .header("retry-after", "1")
         .send(
-          error(
-            "temporarily_unavailable",
-            "Database access is temporarily unavailable. Retry commands with the same key.",
-            request.id,
-          ),
+          error({
+            code: "temporarily_unavailable",
+            message:
+              "Database access is temporarily unavailable. Retry commands with the same key.",
+            requestId: request.id,
+          }),
         );
     return fallbackErrorHandler.call(this, cause, request, reply);
   });
@@ -129,8 +141,8 @@ export async function createPaybridgeApp({
       schema: {
         security,
         querystring: noQuery,
-        headers: requestSchema(creationHeaders),
-        body: requestSchema(createPaymentInput),
+        headers: requestSchema({ validator: creationHeaders }),
+        body: requestSchema({ validator: createPaymentInput }),
         response: {
           201: {
             ...creationAcknowledgment.toJsonSchema(),
@@ -146,11 +158,11 @@ export async function createPaybridgeApp({
           return reply
             .code(400)
             .send(
-              error(
-                "invalid_idempotency_key",
-                "A command key of 1 to 128 characters is required.",
-                request.id,
-              ),
+              error({
+                code: "invalid_idempotency_key",
+                message: "A command key of 1 to 128 characters is required.",
+                requestId: request.id,
+              }),
             );
       },
     },
@@ -163,21 +175,21 @@ export async function createPaybridgeApp({
         return reply
           .code(401)
           .send(
-            error(
-              "unauthorized",
-              "Valid merchant credentials are required.",
-              request.id,
-            ),
+            error({
+              code: "unauthorized",
+              message: "Valid merchant credentials are required.",
+              requestId: request.id,
+            }),
           );
       if (!validReturnUrl({ input: request.body, merchant }))
         return reply
           .code(400)
           .send(
-            error(
-              "invalid_request",
-              "The return URL is not permitted.",
-              request.id,
-            ),
+            error({
+              code: "invalid_request",
+              message: "The return URL is not permitted.",
+              requestId: request.id,
+            }),
           );
       const key = request.headers["idempotency-key"];
       const result = await createPayment({
@@ -188,38 +200,7 @@ export async function createPaybridgeApp({
         key,
         ...(beforeCreationCommit ? { beforeCommit: beforeCreationCommit } : {}),
       });
-      switch (result.kind) {
-        case "completed":
-          return reply
-            .code(result.acknowledgment.status)
-            .headers(result.acknowledgment.headers)
-            .send(result.acknowledgment.body);
-        case "conflict":
-          return reply
-            .code(409)
-            .send(
-              error(
-                "idempotency_conflict",
-                "The command key identifies a different request.",
-                request.id,
-              ),
-            );
-        case "in_progress":
-          return reply
-            .code(409)
-            .header("retry-after", "1")
-            .send(
-              error(
-                "command_in_progress",
-                "The command is still in progress.",
-                request.id,
-              ),
-            );
-        default: {
-          const exhaustive: never = result;
-          return exhaustive;
-        }
-      }
+      return sendCommandResult({ reply, result, requestId: request.id });
     },
   );
   app.get<{ Params: typeof params.infer }>(
@@ -228,7 +209,7 @@ export async function createPaybridgeApp({
       schema: {
         security,
         querystring: noQuery,
-        params: requestSchema(params),
+        params: requestSchema({ validator: params }),
         response: {
           200: { ...paymentSnapshot.toJsonSchema(), headers: snapshotHeaders },
           ...errors,
@@ -244,11 +225,11 @@ export async function createPaybridgeApp({
         return reply
           .code(401)
           .send(
-            error(
-              "unauthorized",
-              "Valid merchant credentials are required.",
-              request.id,
-            ),
+            error({
+              code: "unauthorized",
+              message: "Valid merchant credentials are required.",
+              requestId: request.id,
+            }),
           );
       const payment = await lookupPayment({
         db,
@@ -259,11 +240,11 @@ export async function createPaybridgeApp({
         return reply
           .code(404)
           .send(
-            error(
-              "payment_not_found",
-              "The payment was not found.",
-              request.id,
-            ),
+            error({
+              code: "payment_not_found",
+              message: "The payment was not found.",
+              requestId: request.id,
+            }),
           );
       return payment;
     },
@@ -278,9 +259,9 @@ export async function createPaybridgeApp({
       schema: {
         security,
         querystring: noQuery,
-        params: requestSchema(params),
-        headers: requestSchema(creationHeaders),
-        body: requestSchema(confirmPaymentInput),
+        params: requestSchema({ validator: params }),
+        headers: requestSchema({ validator: creationHeaders }),
+        body: requestSchema({ validator: confirmPaymentInput }),
         response: {
           202: {
             ...confirmationAcknowledgment.toJsonSchema(),
@@ -296,11 +277,11 @@ export async function createPaybridgeApp({
           return reply
             .code(400)
             .send(
-              error(
-                "invalid_idempotency_key",
-                "A command key of 1 to 128 characters is required.",
-                request.id,
-              ),
+              error({
+                code: "invalid_idempotency_key",
+                message: "A command key of 1 to 128 characters is required.",
+                requestId: request.id,
+              }),
             );
       },
     },
@@ -313,11 +294,11 @@ export async function createPaybridgeApp({
         return reply
           .code(401)
           .send(
-            error(
-              "unauthorized",
-              "Valid merchant credentials are required.",
-              request.id,
-            ),
+            error({
+              code: "unauthorized",
+              message: "Valid merchant credentials are required.",
+              requestId: request.id,
+            }),
           );
       const result = await confirmPayment({
         db,
@@ -339,7 +320,7 @@ export async function createPaybridgeApp({
       schema: {
         security,
         querystring: noQuery,
-        params: requestSchema(params),
+        params: requestSchema({ validator: params }),
         description:
           "Permanently cancel a PENDING payment. No request body or idempotency key is required. Repeats return the unchanged cancelled snapshot.",
         response: {
@@ -352,11 +333,11 @@ export async function createPaybridgeApp({
           return reply
             .code(400)
             .send(
-              error(
-                "invalid_request",
-                "Cancellation has no request body.",
-                request.id,
-              ),
+              error({
+                code: "invalid_request",
+                message: "Cancellation has no request body.",
+                requestId: request.id,
+              }),
             );
       },
     },
@@ -369,11 +350,11 @@ export async function createPaybridgeApp({
         return reply
           .code(401)
           .send(
-            error(
-              "unauthorized",
-              "Valid merchant credentials are required.",
-              request.id,
-            ),
+            error({
+              code: "unauthorized",
+              message: "Valid merchant credentials are required.",
+              requestId: request.id,
+            }),
           );
       const result = await cancelPayment({
         db,
@@ -390,21 +371,22 @@ export async function createPaybridgeApp({
           return reply
             .code(404)
             .send(
-              error(
-                "payment_not_found",
-                "The payment was not found.",
-                request.id,
-              ),
+              error({
+                code: "payment_not_found",
+                message: "The payment was not found.",
+                requestId: request.id,
+              }),
             );
         case "not_cancellable":
           return reply
             .code(409)
             .send(
-              error(
-                "payment_not_cancellable",
-                "The payment cannot be cancelled in its current state.",
-                request.id,
-              ),
+              error({
+                code: "payment_not_cancellable",
+                message:
+                  "The payment cannot be cancelled in its current state.",
+                requestId: request.id,
+              }),
             );
         default: {
           const exhaustive: never = result;

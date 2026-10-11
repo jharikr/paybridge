@@ -50,34 +50,45 @@ export async function command({
     },
   );
 }
-export async function unknownPayment(
-  app: Awaited<ReturnType<typeof journey>>,
-  path: string,
-  {
+export async function unknownPayment({
+  app,
+  path,
+  options: {
     fixture = "pm_mock_lost_response",
     origin = app.mockUrl,
     merchant = "a",
   } = {},
-) {
+}: {
+  app: Awaited<ReturnType<typeof journey>>;
+  path: string;
+  options?: { fixture?: string; origin?: string; merchant?: string };
+}) {
   const { id } = type({ id: "string" }).assert(
-    await (await create(app.url, { merchant })).json(),
+    await (await create({ url: app.url, options: { merchant } })).json(),
   );
-  expect((await confirm(app.url, id, { fixture, merchant })).status).toBe(202);
+  expect(
+    (await confirm({ url: app.url, id, options: { fixture, merchant } }))
+      .status,
+  ).toBe(202);
   const worker = await app.startWorker({ origin });
   await expect
-    .poll(() => lookup(app.url, id, merchant))
+    .poll(() => lookup({ url: app.url, id, merchant }))
     .toMatchObject({ status: "UNKNOWN", revision: 3 });
   await worker.stop();
   const { id: reconciliationId } = type({ id: "string" }).assert(
-    rows(path, "SELECT id FROM reconciliations")[0],
+    rows({ path, sql: "SELECT id FROM reconciliations" })[0],
   );
   return { id, reconciliationId, identity: identity(path) };
 }
-export async function inspect(
-  path: string,
-  account: string,
-  tranId: string,
-): Promise<unknown> {
+export async function inspect({
+  path,
+  account,
+  tranId,
+}: {
+  path: string;
+  account: string;
+  tranId: string;
+}): Promise<unknown> {
   const { stdout } = await promisify(execFile)(
     process.execPath,
     [
@@ -92,11 +103,15 @@ export async function inspect(
   );
   return JSON.parse(stdout);
 }
-export function resolutionInput(
-  reconciliationId: string,
-  evidence: unknown,
+export function resolutionInput({
+  reconciliationId,
+  evidence,
   resolution = "SUCCEEDED",
-) {
+}: {
+  reconciliationId: string;
+  evidence: unknown;
+  resolution?: string;
+}) {
   return {
     kind: "resolve",
     reconciliationId,
@@ -112,7 +127,13 @@ export async function providerProxy({
   reply,
 }: {
   upstream: string;
-  reply: (xml: string, response: ServerResponse) => Promise<void> | void;
+  reply: ({
+    xml,
+    response,
+  }: {
+    xml: string;
+    response: ServerResponse;
+  }) => Promise<void> | void;
 }) {
   const server = createServer((request, response) => {
     void (async () => {
@@ -125,7 +146,7 @@ export async function providerProxy({
         signal: AbortSignal.timeout(10000),
       });
       response.setHeader("content-type", "text/xml; charset=utf-8");
-      await reply(await upstreamResponse.text(), response);
+      await reply({ xml: await upstreamResponse.text(), response });
     })().catch(() => response.destroy());
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));

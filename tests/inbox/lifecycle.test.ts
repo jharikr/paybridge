@@ -15,13 +15,17 @@ test("production inbox readiness follows database setup and SIGTERM interrupts a
   });
   try {
     workerReady.assert(await worker.message());
-    expect(rows(files.merchant, "SELECT * FROM webhook_inbox")).toEqual([]);
+    expect(
+      rows({ path: files.merchant, sql: "SELECT * FROM webhook_inbox" }),
+    ).toEqual([]);
     const exited = once(worker.child, "exit", {
       signal: AbortSignal.timeout(2000),
     });
     worker.child.kill("SIGTERM");
     expect(await exited).toEqual([0, null]);
-    expect(rows(files.merchant, "SELECT * FROM webhook_inbox")).toEqual([]);
+    expect(
+      rows({ path: files.merchant, sql: "SELECT * FROM webhook_inbox" }),
+    ).toEqual([]);
   } finally {
     await worker.stop();
   }

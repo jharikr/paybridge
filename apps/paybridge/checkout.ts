@@ -67,8 +67,8 @@ export function registerCheckout({
   beforeCommit?: () => Promise<void>;
 }) {
   const security = [{ checkoutCapability: [] }];
-  const params = requestSchema(checkoutParams);
-  const querystring = requestSchema(checkoutQuery);
+  const params = requestSchema({ validator: checkoutParams });
+  const querystring = requestSchema({ validator: checkoutQuery });
   const redirect = {
     content: { "text/plain": { schema: { type: "string", const: "" } } },
     headers: {
@@ -184,8 +184,10 @@ export function registerCheckout({
         security,
         params,
         querystring,
-        body: requestSchema(confirmPaymentInput),
-        headers: requestSchema(type({ "idempotency-key": commandKey })),
+        body: requestSchema({ validator: confirmPaymentInput }),
+        headers: requestSchema({
+          validator: type({ "idempotency-key": commandKey }),
+        }),
         response: { 303: redirect, ...errors },
       },
     },

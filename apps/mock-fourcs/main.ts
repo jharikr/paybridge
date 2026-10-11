@@ -1,3 +1,4 @@
+import { failureDetails, safeFailure } from "../../contracts/diagnostics.ts";
 import { mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -64,9 +65,13 @@ try {
   process.once("SIGINT", () => {
     void stop();
   });
-} catch {
+} catch (cause) {
+  const failure =
+    cause instanceof Error && failureDetails.allows(cause.cause)
+      ? cause.cause
+      : safeFailure({ operation: "mock_start", cause });
   process.stderr.write(
-    `${JSON.stringify({ event: "mock-fourcs-start-failed" })}\n`,
+    `${JSON.stringify({ event: "mock-fourcs-start-failed", failure })}\n`,
   );
   process.exitCode = 1;
 }

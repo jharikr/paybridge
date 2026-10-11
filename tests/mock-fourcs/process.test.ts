@@ -5,6 +5,7 @@ import { DatabaseSync } from "node:sqlite";
 import { type } from "arktype";
 import { expect, test } from "vitest";
 import {
+  fourcsRequestInput,
   buildFourcsRequest,
   soapAction,
   soapPath,
@@ -36,24 +37,26 @@ async function launch(path: string) {
     throw error;
   }
 }
-function submit(
-  url: string,
-  {
-    ref = "pm_mock_approved",
-    tranId = "TXN1",
-  }: { ref?: MockPaymentMethodRef; tranId?: string } = {},
-) {
+function submit({
+  url,
+  options: { ref = "pm_mock_approved", tranId = "TXN1" } = {},
+}: {
+  url: string;
+  options?: { ref?: MockPaymentMethodRef; tranId?: string };
+}) {
   return fetch(`${url}${soapPath}`, {
     method: "POST",
     headers: { "content-type": "text/xml", soapaction: soapAction },
-    body: buildFourcsRequest({
-      merchantKey: "mock-provider-key-a",
-      invoice: "INV1",
-      tranId,
-      amountMinor: 7500,
-      currency: "XCD",
-      mockPaymentMethodRef: ref,
-    }),
+    body: buildFourcsRequest(
+      fourcsRequestInput.assert({
+        merchantKey: "mock-provider-key-a",
+        invoice: "INV1",
+        tranId,
+        amountMinor: 7500,
+        currency: "XCD",
+        mockPaymentMethodRef: ref,
+      }),
+    ),
   });
 }
 function facts(path: string) {
@@ -73,9 +76,10 @@ test("lost response commits once; same-ID recovery after actual process restart 
   await using files = await isolatedDatabases();
   const first = await launch(files.mockFourcs);
   try {
-    const response = submit(first.url, { ref: "pm_mock_lost_response" }).catch(
-      () => null,
-    );
+    const response = submit({
+      url: first.url,
+      options: { ref: "pm_mock_lost_response" },
+    }).catch(() => null);
     expect(phase.assert(await first.message())).toMatchObject({
       kind: "after-acceptance",
       providerAccount: "mock-account-a",
@@ -98,7 +102,7 @@ test("lost response commits once; same-ID recovery after actual process restart 
   }
   const restarted = await launch(files.mockFourcs);
   try {
-    const response = await submit(restarted.url);
+    const response = await submit({ url: restarted.url });
     expect(await response.text()).toContain(
       "<ResultCode>DuplicateTransaction</ResultCode>",
     );
@@ -120,14 +124,16 @@ test("an absent ledger entry and one rejected submission do not prevent a held r
       method: "POST",
       headers: { "content-type": "text/xml", soapaction: soapAction },
       signal: controller.signal,
-      body: buildFourcsRequest({
-        merchantKey: "mock-provider-key-a",
-        invoice: "INV1",
-        tranId: "HELD",
-        amountMinor: 7500,
-        currency: "XCD",
-        mockPaymentMethodRef: "pm_mock_held_before_acceptance",
-      }),
+      body: buildFourcsRequest(
+        fourcsRequestInput.assert({
+          merchantKey: "mock-provider-key-a",
+          invoice: "INV1",
+          tranId: "HELD",
+          amountMinor: 7500,
+          currency: "XCD",
+          mockPaymentMethodRef: "pm_mock_held_before_acceptance",
+        }),
+      ),
     }).catch(() => null);
     const before = phase.assert(await provider.message());
     expect(before.kind).toBe("before-acceptance");
@@ -135,9 +141,12 @@ test("an absent ledger entry and one rejected submission do not prevent a held r
     expect(facts(files.mockFourcs)).toEqual([]);
     controller.abort();
     expect(await held).toBeNull();
-    const rejected = await submit(provider.url, {
-      tranId: "HELD",
-      ref: "pm_mock_fail_before_acceptance",
+    const rejected = await submit({
+      url: provider.url,
+      options: {
+        tranId: "HELD",
+        ref: "pm_mock_fail_before_acceptance",
+      },
     });
     expect(await rejected.text()).toContain(
       "<ResultCode>Unavailable</ResultCode>",
@@ -167,13 +176,19 @@ test("a delayed same-ID submission cannot replace a stored decline, even after i
   await using files = await isolatedDatabases();
   const provider = await launch(files.mockFourcs);
   try {
-    const held = submit(provider.url, {
-      ref: "pm_mock_held_before_acceptance",
+    const held = submit({
+      url: provider.url,
+      options: {
+        ref: "pm_mock_held_before_acceptance",
+      },
     }).catch(() => null);
     const before = phase.assert(await provider.message());
     expect(before.kind).toBe("before-acceptance");
-    const lost = submit(provider.url, {
-      ref: "pm_mock_decline_lost_response",
+    const lost = submit({
+      url: provider.url,
+      options: {
+        ref: "pm_mock_decline_lost_response",
+      },
     }).catch(() => null);
     expect(phase.assert(await provider.message()).kind).toBe(
       "after-acceptance",
@@ -187,8 +202,11 @@ test("a delayed same-ID submission cannot replace a stored decline, even after i
     expect(await (await held)?.text()).toContain(
       "<ResultCode>DuplicateTransaction</ResultCode>",
     );
-    const rejectedFixture = await submit(provider.url, {
-      ref: "pm_mock_fail_before_acceptance",
+    const rejectedFixture = await submit({
+      url: provider.url,
+      options: {
+        ref: "pm_mock_fail_before_acceptance",
+      },
     });
     expect(await rejectedFixture.text()).toContain(
       "<ResultCode>DuplicateTransaction</ResultCode>",
@@ -209,7 +227,7 @@ test("a delayed same-ID submission cannot replace a stored decline, even after i
   }
   const restarted = await launch(files.mockFourcs);
   try {
-    expect(await (await submit(restarted.url)).text()).toContain(
+    expect(await (await submit({ url: restarted.url })).text()).toContain(
       "<ResultCode>DuplicateTransaction</ResultCode>",
     );
     expect(facts(files.mockFourcs)[0]).toMatchObject({
@@ -225,8 +243,11 @@ test("an accepted delayed response remains durable when the provider is killed b
   await using files = await isolatedDatabases();
   const provider = await launch(files.mockFourcs);
   try {
-    const delayed = submit(provider.url, {
-      ref: "pm_mock_delayed_response",
+    const delayed = submit({
+      url: provider.url,
+      options: {
+        ref: "pm_mock_delayed_response",
+      },
     }).catch(() => null);
     const after = phase.assert(await provider.message());
     expect(after).toMatchObject({
@@ -237,7 +258,7 @@ test("an accepted delayed response remains durable when the provider is killed b
       final_outcome: "Approved",
       effect_count: 1,
     });
-    expect(await (await submit(provider.url)).text()).toContain(
+    expect(await (await submit({ url: provider.url })).text()).toContain(
       "<ResultCode>DuplicateTransaction</ResultCode>",
     );
     await provider.stop();
@@ -247,7 +268,7 @@ test("an accepted delayed response remains durable when the provider is killed b
   }
   const restarted = await launch(files.mockFourcs);
   try {
-    expect(await (await submit(restarted.url)).text()).toContain(
+    expect(await (await submit({ url: restarted.url })).text()).toContain(
       "<ResultCode>DuplicateTransaction</ResultCode>",
     );
     expect(facts(files.mockFourcs)).toHaveLength(1);
@@ -264,7 +285,9 @@ test("overlapping same-ID submissions across two provider processes produce one 
   try {
     const responses = await Promise.all(
       Array.from({ length: 12 }, async (_, index) => {
-        const response = await submit(index % 2 ? first.url : second.url);
+        const response = await submit({
+          url: index % 2 ? first.url : second.url,
+        });
         return { status: response.status, xml: await response.text() };
       }),
     );
@@ -305,7 +328,7 @@ test("the trusted operator inspector reports matching final evidence without cre
     new URL("../../apps/mock-fourcs/inspect.ts", import.meta.url),
   );
   try {
-    expect(await (await submit(provider.url)).text()).toContain(
+    expect(await (await submit({ url: provider.url })).text()).toContain(
       "<FinancialResultCode>Approved</FinancialResultCode>",
     );
     const recorded = await promisify(execFile)(
@@ -352,13 +375,16 @@ test("releasing a delayed response sends the original committed approval after d
   await using files = await isolatedDatabases();
   const provider = await launch(files.mockFourcs);
   try {
-    const delayed = submit(provider.url, {
-      ref: "pm_mock_delayed_response",
+    const delayed = submit({
+      url: provider.url,
+      options: {
+        ref: "pm_mock_delayed_response",
+      },
     }).catch(() => null);
     const after = phase.assert(await provider.message());
     expect(after.kind).toBe("after-acceptance");
     expect(facts(files.mockFourcs)[0]?.effect_count).toBe(1);
-    expect(await (await submit(provider.url)).text()).toContain(
+    expect(await (await submit({ url: provider.url })).text()).toContain(
       "<ResultCode>DuplicateTransaction</ResultCode>",
     );
     provider.child.send({ kind: "release", gateId: after.gateId });

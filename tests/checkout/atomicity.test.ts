@@ -27,12 +27,18 @@ test("checkout and direct HTTP confirmations share one atomic revision guard acr
   });
   try {
     const url = ready.assert(await other.message()).url;
-    const payment = creation.assert(await (await create(services.url)).json());
+    const payment = creation.assert(
+      await (await create({ url: services.url })).json(),
+    );
     const responses = await Promise.all(
       Array.from({ length: 12 }, (_, index) =>
         index % 2
           ? checkoutConfirm({ url, payment, key: `checkout-${index}` })
-          : confirm(services.url, payment.id, { key: `direct-${index}` }),
+          : confirm({
+              url: services.url,
+              id: payment.id,
+              options: { key: `direct-${index}` },
+            }),
       ),
     );
     expect(
@@ -48,13 +54,15 @@ test("checkout and direct HTTP confirmations share one atomic revision guard acr
       responses.filter((response) => response.status === 409),
     ).toHaveLength(11);
     expect(
-      rows(files.paybridge, "SELECT id FROM payment_attempts"),
+      rows({ path: files.paybridge, sql: "SELECT id FROM payment_attempts" }),
     ).toHaveLength(1);
     expect(
-      rows(files.paybridge, "SELECT id FROM provider_outbox"),
+      rows({ path: files.paybridge, sql: "SELECT id FROM provider_outbox" }),
     ).toHaveLength(1);
     const second = creation.assert(
-      await (await create(services.url, { key: "second" })).json(),
+      await (
+        await create({ url: services.url, options: { key: "second" } })
+      ).json(),
     );
     const repeats = await Promise.all(
       Array.from({ length: 12 }, (_, index) =>
@@ -72,7 +80,7 @@ test("checkout and direct HTTP confirmations share one atomic revision guard acr
       await Promise.all(repeats.map((response) => response.text())),
     ).toEqual(Array(12).fill(""));
     expect(
-      rows(files.paybridge, "SELECT id FROM payment_attempts"),
+      rows({ path: files.paybridge, sql: "SELECT id FROM payment_attempts" }),
     ).toHaveLength(2);
   } finally {
     await other.stop();
@@ -87,7 +95,9 @@ test("checkout rollback and a killed acceptance transaction retain no partial at
   });
   let payment: typeof creation.infer;
   try {
-    payment = creation.assert(await (await create(rollback.url)).json());
+    payment = creation.assert(
+      await (await create({ url: rollback.url })).json(),
+    );
     const before = paymentRecords(files.paybridge);
     const failed = await checkoutConfirm({ url: rollback.url, payment });
     expect(failed.status).toBe(500);
@@ -123,9 +133,9 @@ test("checkout rollback and a killed acceptance transaction retain no partial at
   expect((await checkoutConfirm({ url: services.url, payment })).status).toBe(
     303,
   );
-  expect(rows(files.paybridge, "SELECT id FROM payment_attempts")).toHaveLength(
-    1,
-  );
+  expect(
+    rows({ path: files.paybridge, sql: "SELECT id FROM payment_attempts" }),
+  ).toHaveLength(1);
 });
 
 test("a lost committed checkout redirect survives process restart with its exact cached acknowledgment", async () => {
@@ -143,7 +153,9 @@ test("a lost committed checkout redirect survives process restart with its exact
   });
   let cached: typeof acknowledgment.infer;
   try {
-    payment = creation.assert(await (await create(original.url)).json());
+    payment = creation.assert(
+      await (await create({ url: original.url })).json(),
+    );
     const interrupted = checkoutConfirm({ url: original.url, payment }).then(
       () => "response",
       () => "lost",
@@ -151,10 +163,10 @@ test("a lost committed checkout redirect survives process restart with its exact
     expect(await original.message()).toEqual({ kind: "after-commit" });
     committed = paymentRecords(files.paybridge);
     cached = acknowledgment.assert(
-      rows(
-        files.paybridge,
-        "SELECT response_status, response_body, response_headers FROM idempotency_keys WHERE key = 'checkout-1'",
-      )[0],
+      rows({
+        path: files.paybridge,
+        sql: "SELECT response_status, response_body, response_headers FROM idempotency_keys WHERE key = 'checkout-1'",
+      })[0],
     );
     await original.stop();
     expect(await interrupted).toBe("lost");

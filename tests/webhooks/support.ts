@@ -7,14 +7,17 @@ export const payload =
   '{ "id":"evt_11111111111111111111111111111111", "type":"payment.succeeded", "createdAt":"2026-10-11T12:00:01Z", "data":{"paymentIntentId":"pi_22222222222222222222222222222222","merchantReference":"Café 😀","amount":7500,"currency":"XCD","status":"SUCCEEDED","revision":3}}\n';
 export const epoch = Date.parse("2026-10-11T12:00:01Z");
 export const ready = type({ kind: "'ready'", url: "string" });
-export function signed(
-  body: string | Uint8Array,
-  {
+export function signed({
+  body,
+  options: {
     secret = "mock-webhook-secret-a",
     timestamp = String(Math.floor(epoch / 1000)),
     id = eventId,
   } = {},
-) {
+}: {
+  body: string | Uint8Array;
+  options?: { secret?: string; timestamp?: string; id?: string };
+}) {
   return {
     "content-type": "application/json",
     "paybridge-event-id": id,
@@ -25,7 +28,15 @@ export function signed(
       .digest("hex")}`,
   };
 }
-export async function receiver(path: string, fault = "none", tolerance = 300) {
+export async function receiver({
+  path,
+  fault = "none",
+  tolerance = 300,
+}: {
+  path: string;
+  fault?: string;
+  tolerance?: number;
+}) {
   const process = startNodeProcess({
     entrypoint: fileURLToPath(
       new URL("./fixtures/receiver.ts", import.meta.url),

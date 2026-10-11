@@ -92,7 +92,9 @@ test("OpenAPI describes actual checkout JSON, strict confirmation, redirect head
       cardNumber: "9900000000000001",
     }),
   ).toBe(false);
-  const payment = creation.assert(await (await create(services.url)).json());
+  const payment = creation.assert(
+    await (await create({ url: services.url })).json(),
+  );
   const shown = await fetch(checkout({ url: services.url, payment }));
   expect(
     ajv.compile(responseSchema(display.responses["200"]))(await shown.json()),
@@ -163,11 +165,20 @@ test("merchant return documents its applied result and rejects substituted bindi
       api.paths["/{merchantFixture}/payment-return"]?.["get"],
     );
     const order = orderIdentity.assert(
-      await (await post(merchant.url, "/merchant-a/orders", orderBody)).json(),
+      await (
+        await post({
+          url: merchant.url,
+          path: "/merchant-a/orders",
+          body: orderBody,
+        })
+      ).json(),
     );
     const payment = creation.assert(
       await (
-        await post(merchant.url, `/merchant-a/orders/${order.id}/payment`)
+        await post({
+          url: merchant.url,
+          path: `/merchant-a/orders/${order.id}/payment`,
+        })
       ).json(),
     );
     const response = await fetch(
@@ -184,7 +195,9 @@ test("merchant return documents its applied result and rejects substituted bindi
       response,
       names: ["cache-control", "x-content-type-options"],
     });
-    const unbound = creation.assert(await (await create(services.url)).json());
+    const unbound = creation.assert(
+      await (await create({ url: services.url })).json(),
+    );
     for (const path of [
       `merchant-b/payment-return?paymentId=${payment.id}`,
       `merchant-c/payment-return?paymentId=${payment.id}`,

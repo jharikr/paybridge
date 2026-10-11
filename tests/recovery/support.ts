@@ -49,7 +49,7 @@ export function claim(path: string) {
     lease_expires_at: "string",
     attempt_count: "number",
     status: "'PROCESSING'",
-  }).assert(rows(path, "SELECT * FROM provider_outbox")[0]);
+  }).assert(rows({ path, sql: "SELECT * FROM provider_outbox" })[0]);
 }
 export function identity(path: string) {
   return type({
@@ -62,29 +62,29 @@ export function identity(path: string) {
     currency: "string",
     mock_payment_method_ref: "string",
   }).assert(
-    rows(
+    rows({
       path,
-      `SELECT p.id AS payment_intent_id, a.id AS payment_attempt_id,
+      sql: `SELECT p.id AS payment_intent_id, a.id AS payment_attempt_id,
     a.provider_account_ref, a.provider_transaction_id, p.provider_invoice,
     p.amount, p.currency, a.mock_payment_method_ref
     FROM payment_intents p JOIN payment_attempts a ON a.payment_intent_id = p.id`,
-    )[0],
+    })[0],
   );
 }
 export function ledger(path: string) {
-  return rows(path, "SELECT * FROM mock_transactions ORDER BY id");
+  return rows({ path, sql: "SELECT * FROM mock_transactions ORDER BY id" });
 }
 export function records(path: string) {
   return {
-    attempts: rows(path, "SELECT * FROM payment_attempts ORDER BY id"),
-    work: rows(path, "SELECT * FROM provider_outbox ORDER BY id"),
-    cases: rows(path, "SELECT * FROM reconciliations ORDER BY id"),
-    events: rows(path, "SELECT * FROM payment_events ORDER BY rowid"),
+    attempts: rows({ path, sql: "SELECT * FROM payment_attempts ORDER BY id" }),
+    work: rows({ path, sql: "SELECT * FROM provider_outbox ORDER BY id" }),
+    cases: rows({ path, sql: "SELECT * FROM reconciliations ORDER BY id" }),
+    events: rows({ path, sql: "SELECT * FROM payment_events ORDER BY rowid" }),
     // Delivery bookkeeping can advance while the combined worker preserves these financial facts.
-    webhooks: rows(
+    webhooks: rows({
       path,
-      "SELECT id,payment_event_id,merchant_id,payment_intent_id,event_type,payload,created_at FROM webhook_outbox ORDER BY id",
-    ),
+      sql: "SELECT id,payment_event_id,merchant_id,payment_intent_id,event_type,payload,created_at FROM webhook_outbox ORDER BY id",
+    }),
   };
 }
 export const mockGate = type({

@@ -21,27 +21,52 @@ test("the shared snapshot transaction checks the receiving owner and immutable b
   });
   try {
     const a = orderIdentity.assert(
-      await (await post(merchant.url, "/merchant-a/orders", orderBody)).json(),
+      await (
+        await post({
+          url: merchant.url,
+          path: "/merchant-a/orders",
+          body: orderBody,
+        })
+      ).json(),
     );
     const b = orderIdentity.assert(
-      await (await post(merchant.url, "/merchant-b/orders", orderBody)).json(),
+      await (
+        await post({
+          url: merchant.url,
+          path: "/merchant-b/orders",
+          body: orderBody,
+        })
+      ).json(),
     );
     const payment = paymentIdentity.assert(
       await (
-        await post(merchant.url, `/merchant-a/orders/${a.id}/payment`)
+        await post({
+          url: merchant.url,
+          path: `/merchant-a/orders/${a.id}/payment`,
+        })
       ).json(),
     );
-    await post(merchant.url, `/merchant-b/orders/${b.id}/payment`);
-    await post(merchant.url, `/merchant-a/orders/${a.id}/confirm`, {
-      commandNumber: 1,
-      mockPaymentMethodRef: "pm_mock_approved",
-      expectedRevision: 1,
+    await post({
+      url: merchant.url,
+      path: `/merchant-b/orders/${b.id}/payment`,
+    });
+    await post({
+      url: merchant.url,
+      path: `/merchant-a/orders/${a.id}/confirm`,
+      body: {
+        commandNumber: 1,
+        mockPaymentMethodRef: "pm_mock_approved",
+        expectedRevision: 1,
+      },
     });
     await services.startWorker();
     await expect
-      .poll(async () => (await lookup(services.url, payment.id)).status)
+      .poll(
+        async () =>
+          (await lookup({ url: services.url, id: payment.id })).status,
+      )
       .toBe("SUCCEEDED");
-    const current = await lookup(services.url, payment.id);
+    const current = await lookup({ url: services.url, id: payment.id });
     const snapshot = merchantPaymentSnapshot.assert({
       paymentIntentId: current.id,
       merchantReference: current.merchantReference,
@@ -51,11 +76,14 @@ test("the shared snapshot transaction checks the receiving owner and immutable b
       revision: current.revision,
     });
     const before = {
-      orders: rows(files.merchant, "SELECT * FROM orders ORDER BY id"),
-      payments: rows(
-        files.merchant,
-        "SELECT * FROM merchant_payments ORDER BY payment_intent_id",
-      ),
+      orders: rows({
+        path: files.merchant,
+        sql: "SELECT * FROM orders ORDER BY id",
+      }),
+      payments: rows({
+        path: files.merchant,
+        sql: "SELECT * FROM merchant_payments ORDER BY payment_intent_id",
+      }),
     };
     const consumer = startNodeProcess({
       entrypoint: fileURLToPath(
@@ -102,11 +130,14 @@ test("the shared snapshot transaction checks the receiving owner and immutable b
         });
         expect(await consumer.message()).toEqual({ kind: scenario.kind });
         expect({
-          orders: rows(files.merchant, "SELECT * FROM orders ORDER BY id"),
-          payments: rows(
-            files.merchant,
-            "SELECT * FROM merchant_payments ORDER BY payment_intent_id",
-          ),
+          orders: rows({
+            path: files.merchant,
+            sql: "SELECT * FROM orders ORDER BY id",
+          }),
+          payments: rows({
+            path: files.merchant,
+            sql: "SELECT * FROM merchant_payments ORDER BY payment_intent_id",
+          }),
         }).toEqual(before);
       }
       consumer.child.send({ receivingMerchantId: "merchant-a", snapshot });
@@ -114,10 +145,10 @@ test("the shared snapshot transaction checks the receiving owner and immutable b
         kind: "applied",
         result: { state: "PAID", payment: { revision: 3 } },
       });
-      const after = rows(
-        files.merchant,
-        "SELECT merchant_id, state, paid_at FROM orders ORDER BY merchant_id",
-      );
+      const after = rows({
+        path: files.merchant,
+        sql: "SELECT merchant_id, state, paid_at FROM orders ORDER BY merchant_id",
+      });
       expect(after).toEqual([
         {
           merchant_id: "merchant-a",
@@ -132,10 +163,10 @@ test("the shared snapshot transaction checks the receiving owner and immutable b
       });
       expect(await consumer.message()).toEqual({ kind: "conflict" });
       expect(
-        rows(
-          files.merchant,
-          "SELECT merchant_id, state, paid_at FROM orders ORDER BY merchant_id",
-        ),
+        rows({
+          path: files.merchant,
+          sql: "SELECT merchant_id, state, paid_at FROM orders ORDER BY merchant_id",
+        }),
       ).toEqual(after);
     } finally {
       await consumer.stop();

@@ -1,7 +1,10 @@
 import { DatabaseSync } from "node:sqlite";
 import { expect, test } from "vitest";
 import { isolatedDatabases } from "../support/databases.ts";
-import { buildFourcsRequest } from "../../contracts/fourcs.ts";
+import {
+  fourcsRequestInput,
+  buildFourcsRequest,
+} from "../../contracts/fourcs.ts";
 import { createMockFourcs } from "../../apps/mock-fourcs/server.ts";
 
 const endpoint = "/TranSvcs/ssis.asmx";
@@ -13,7 +16,7 @@ function requestXml({
 } = {}) {
   return `<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><SSISProcessTransaction xmlns="http://equament.com/Schemas/Fmx/ssis"><request><MerchantKey>${key}</MerchantKey><TranType>AuthAndPost</TranType><Amount>75.00</Amount><Currency>XCD</Currency><Invoice>INV1</Invoice><TranId>${tranId}</TranId><CardNumber>${card}</CardNumber><ExpiryMMYY>1230</ExpiryMMYY><VerificationValue>123</VerificationValue><CardholderName>Fixture Payer</CardholderName><Address>Fixture Address</Address></request></SSISProcessTransaction></s:Body></s:Envelope>`;
 }
-async function submit(url: string, xml: string) {
+async function submit({ url, xml }: { url: string; xml: string }) {
   const response = await fetch(`${url}${endpoint}`, {
     method: "POST",
     headers: { "content-type": "text/xml; charset=utf-8", soapaction: action },
@@ -39,7 +42,7 @@ test("approval is recorded before the SOAP reply and duplicates preserve one acc
   const app = await createMockFourcs({ databasePath: files.mockFourcs });
   try {
     const url = await app.listen({ host: "127.0.0.1", port: 0 });
-    const first = await submit(url, requestXml());
+    const first = await submit({ url, xml: requestXml() });
     expect(first.status).toBe(200);
     expect(first.xml).toContain(
       "<SSISProcessTransactionResult>OK</SSISProcessTransactionResult>",
@@ -49,7 +52,7 @@ test("approval is recorded before the SOAP reply and duplicates preserve one acc
       "<FinancialResultCode>Approved</FinancialResultCode>",
     );
     expect(first.xml).toContain("<Amount>75.00</Amount>");
-    expect((await submit(url, requestXml())).xml).toContain(
+    expect((await submit({ url, xml: requestXml() })).xml).toContain(
       "<ResultCode>DuplicateTransaction</ResultCode>",
     );
     expect(ledger(files.mockFourcs)).toEqual([
@@ -74,17 +77,21 @@ test("decline and incomplete are separate immutable final outcomes, isolated by 
   try {
     const url = await app.listen({ host: "127.0.0.1", port: 0 });
     expect(
-      (await submit(url, requestXml({ card: "9900000000000002" }))).xml,
+      (await submit({ url, xml: requestXml({ card: "9900000000000002" }) }))
+        .xml,
     ).toContain("<FinancialResultCode>Declined</FinancialResultCode>");
     expect(
       (
-        await submit(
+        await submit({
           url,
-          requestXml({ card: "9900000000000003", key: "mock-provider-key-b" }),
-        )
+          xml: requestXml({
+            card: "9900000000000003",
+            key: "mock-provider-key-b",
+          }),
+        })
       ).xml,
     ).toContain("<FinancialResultCode>Incomplete</FinancialResultCode>");
-    expect((await submit(url, requestXml())).xml).toContain(
+    expect((await submit({ url, xml: requestXml() })).xml).toContain(
       "<ResultCode>DuplicateTransaction</ResultCode>",
     );
     expect(ledger(files.mockFourcs)).toEqual([
@@ -132,29 +139,29 @@ test("ambiguous response fixtures retain accepted facts while keeping all three 
     const url = await app.listen({ host: "127.0.0.1", port: 0 });
     expect(
       (
-        await submit(
+        await submit({
           url,
-          requestXml({ card: "9900000000000004", tranId: "MALFORMED" }),
-        )
+          xml: requestXml({ card: "9900000000000004", tranId: "MALFORMED" }),
+        })
       ).xml,
     ).toBe("<invalid");
-    const mismatched = await submit(
+    const mismatched = await submit({
       url,
-      requestXml({ card: "9900000000000005", tranId: "MISMATCH" }),
-    );
+      xml: requestXml({ card: "9900000000000005", tranId: "MISMATCH" }),
+    });
     expect(mismatched.xml).toContain("<TranId>WRONGECHO</TranId>");
-    const service = await submit(
+    const service = await submit({
       url,
-      requestXml({ card: "9900000000000006", tranId: "SERVICE" }),
-    );
+      xml: requestXml({ card: "9900000000000006", tranId: "SERVICE" }),
+    });
     expect(service.xml).toContain("<ResultCode>GeneralError</ResultCode>");
     expect(service.xml).toContain(
       "<FinancialResultCode>Approved</FinancialResultCode>",
     );
-    const operation = await submit(
+    const operation = await submit({
       url,
-      requestXml({ card: "9900000000000007", tranId: "OPERATION" }),
-    );
+      xml: requestXml({ card: "9900000000000007", tranId: "OPERATION" }),
+    });
     expect(operation.xml).toContain(
       "<SSISProcessTransactionResult>UnableToProcessInternalProblem</SSISProcessTransactionResult>",
     );
@@ -236,16 +243,24 @@ test("XML validation rejects ambiguous structure, unsafe declarations, unsupport
         "<Address><script>alert(1)</script></Address>",
       ),
     ]) {
-      const response = await submit(url, invalid);
+      const response = await submit({ url, xml: invalid });
       expect(response.status, invalid).toBe(400);
       expect(response.xml).not.toContain("file:///etc/passwd");
     }
-    expect((await submit(url, "x".repeat(16_385))).status).toBe(413);
+    expect((await submit({ url, xml: "x".repeat(16_385) })).status).toBe(413);
     expect(
-      (await submit(url, requestXml({ key: "mock-provider-key-wrong" }))).xml,
+      (
+        await submit({
+          url,
+          xml: requestXml({ key: "mock-provider-key-wrong" }),
+        })
+      ).xml,
     ).toContain("<ResultCode>SecurityError</ResultCode>");
     expect(ledger(files.mockFourcs)).toHaveLength(0);
-    const accepted = await submit(url, valid.replace("75.00", "99999999.99"));
+    const accepted = await submit({
+      url,
+      xml: valid.replace("75.00", "99999999.99"),
+    });
     expect(accepted.xml).toContain("<Amount>99999999.99</Amount>");
     expect(ledger(files.mockFourcs)[0]?.amount_minor).toBe(9_999_999_999);
   } finally {
@@ -266,27 +281,29 @@ test("synthetic serialization preserves exact minor units and escapes XML metach
       currency: "XCD",
       mockPaymentMethodRef: "pm_mock_approved",
     } as const;
-    const xml = buildFourcsRequest(input);
+    const xml = buildFourcsRequest(fourcsRequestInput.assert(input));
     expect(xml).toContain("<Amount>0.01</Amount>");
-    const response = await submit(url, xml);
+    const response = await submit({ url, xml });
     expect(response.status).toBe(200);
     expect(response.xml).toContain("<Amount>0.01</Amount>");
-    const malicious = buildFourcsRequest({
-      ...input,
-      merchantKey: "synthetic<&\"'>key",
-      tranId: "ESCAPED",
-    });
+    const malicious = buildFourcsRequest(
+      fourcsRequestInput.assert({
+        ...input,
+        merchantKey: "synthetic<&\"'>key",
+        tranId: "ESCAPED",
+      }),
+    );
     expect(malicious).toContain(
       "<MerchantKey>synthetic&lt;&amp;&quot;&apos;&gt;key</MerchantKey>",
     );
-    expect((await submit(url, malicious)).xml).toContain(
+    expect((await submit({ url, xml: malicious })).xml).toContain(
       "<ResultCode>SecurityError</ResultCode>",
     );
     const prefixed = requestXml({ tranId: "PREFIX" })
       .replaceAll("s:Envelope", "env:Envelope")
       .replaceAll("xmlns:s=", "xmlns:env=")
       .replaceAll("s:Body", "env:Body");
-    expect((await submit(url, prefixed)).xml).toContain(
+    expect((await submit({ url, xml: prefixed })).xml).toContain(
       "<FinancialResultCode>Approved</FinancialResultCode>",
     );
     expect(
@@ -331,17 +348,17 @@ test("transport rejects an unsupported action or media type and never executes t
     }
     expect(
       (
-        await submit(
+        await submit({
           url,
-          requestXml().replaceAll(
+          xml: requestXml().replaceAll(
             "SSISProcessTransaction",
             "SSISProcessTransactionRepeat",
           ),
-        )
+        })
       ).status,
     ).toBe(400);
     expect(ledger(files.mockFourcs)).toEqual([]);
-    expect((await submit(url, requestXml())).xml).toContain(
+    expect((await submit({ url, xml: requestXml() })).xml).toContain(
       "<FinancialResultCode>Approved</FinancialResultCode>",
     );
   } finally {

@@ -18,7 +18,10 @@ test(
       paybridgeUrl: "http://127.0.0.1:3100",
     });
     const origin = merchant.url;
-    const api = await startApi(files.paybridge, origin);
+    const api = await startApi({
+      path: files.paybridge,
+      merchantOrigin: origin,
+    });
     const mock = startNodeProcess({
       entrypoint: fileURLToPath(
         new URL("../../apps/mock-fourcs/main.ts", import.meta.url),
@@ -29,7 +32,7 @@ test(
     let restored: ReturnType<typeof startNodeProcess> | undefined;
     try {
       const mockUrl = ready.assert(await mock.message()).url;
-      await cancelled(api.url, origin);
+      await cancelled({ url: api.url, merchantOrigin: origin });
       for (const fixture of [
         "pm_mock_approved",
         "pm_mock_declined",
@@ -81,10 +84,10 @@ test(
       await expect
         .poll(
           () =>
-            rows(
-              files.paybridge,
-              "SELECT status,revision FROM payment_intents ORDER BY status",
-            ),
+            rows({
+              path: files.paybridge,
+              sql: "SELECT status,revision FROM payment_intents ORDER BY status",
+            }),
           { timeout: 3000 },
         )
         .toEqual([
@@ -96,32 +99,32 @@ test(
       await expect
         .poll(
           () =>
-            rows(
-              files.paybridge,
-              "SELECT count(*) AS count FROM webhook_outbox WHERE attempt_count>0",
-            )[0]?.count,
+            rows({
+              path: files.paybridge,
+              sql: "SELECT count(*) AS count FROM webhook_outbox WHERE attempt_count>0",
+            })[0]?.count,
         )
         .toBe(4);
-      const paymentFacts = rows(
-        files.paybridge,
-        "SELECT * FROM payment_intents ORDER BY id",
-      );
-      const attemptFacts = rows(
-        files.paybridge,
-        "SELECT * FROM payment_attempts ORDER BY id",
-      );
-      const eventFacts = rows(
-        files.paybridge,
-        "SELECT * FROM payment_events ORDER BY id",
-      );
-      const providerFacts = rows(
-        files.mockFourcs,
-        "SELECT * FROM mock_transactions ORDER BY id",
-      );
-      const notifications = rows(
-        files.paybridge,
-        "SELECT payment_event_id,event_type,payload,merchant_id FROM webhook_outbox ORDER BY event_type",
-      );
+      const paymentFacts = rows({
+        path: files.paybridge,
+        sql: "SELECT * FROM payment_intents ORDER BY id",
+      });
+      const attemptFacts = rows({
+        path: files.paybridge,
+        sql: "SELECT * FROM payment_attempts ORDER BY id",
+      });
+      const eventFacts = rows({
+        path: files.paybridge,
+        sql: "SELECT * FROM payment_events ORDER BY id",
+      });
+      const providerFacts = rows({
+        path: files.mockFourcs,
+        sql: "SELECT * FROM mock_transactions ORDER BY id",
+      });
+      const notifications = rows({
+        path: files.paybridge,
+        sql: "SELECT payment_event_id,event_type,payload,merchant_id FROM webhook_outbox ORDER BY event_type",
+      });
       expect(notifications.map((record) => record.event_type)).toEqual([
         "payment.cancelled",
         "payment.failed",
@@ -129,7 +132,10 @@ test(
         "payment.unknown",
       ]);
       expect(
-        rows(files.merchant, "SELECT event_id FROM webhook_inbox"),
+        rows({
+          path: files.merchant,
+          sql: "SELECT event_id FROM webhook_inbox",
+        }),
       ).toEqual([]);
       await worker.stop();
       restored = startNodeProcess({
@@ -143,30 +149,49 @@ test(
       await worker.message();
       await expect
         .poll(
-          () => rows(files.paybridge, "SELECT status FROM webhook_outbox"),
+          () =>
+            rows({
+              path: files.paybridge,
+              sql: "SELECT status FROM webhook_outbox",
+            }),
           { timeout: 7000 },
         )
         .toEqual(Array(4).fill({ status: "DELIVERED" }));
       expect(
-        rows(
-          files.merchant,
-          "SELECT event_id AS payment_event_id,event_type,payload,receiving_merchant_id AS merchant_id FROM webhook_inbox ORDER BY event_type",
-        ),
+        rows({
+          path: files.merchant,
+          sql: "SELECT event_id AS payment_event_id,event_type,payload,receiving_merchant_id AS merchant_id FROM webhook_inbox ORDER BY event_type",
+        }),
       ).toEqual(notifications);
       expect(
-        rows(files.merchant, "SELECT status,attempt_count FROM webhook_inbox"),
+        rows({
+          path: files.merchant,
+          sql: "SELECT status,attempt_count FROM webhook_inbox",
+        }),
       ).toEqual(Array(4).fill({ status: "PENDING", attempt_count: 0 }));
       expect(
-        rows(files.paybridge, "SELECT * FROM payment_intents ORDER BY id"),
+        rows({
+          path: files.paybridge,
+          sql: "SELECT * FROM payment_intents ORDER BY id",
+        }),
       ).toEqual(paymentFacts);
       expect(
-        rows(files.paybridge, "SELECT * FROM payment_attempts ORDER BY id"),
+        rows({
+          path: files.paybridge,
+          sql: "SELECT * FROM payment_attempts ORDER BY id",
+        }),
       ).toEqual(attemptFacts);
       expect(
-        rows(files.paybridge, "SELECT * FROM payment_events ORDER BY id"),
+        rows({
+          path: files.paybridge,
+          sql: "SELECT * FROM payment_events ORDER BY id",
+        }),
       ).toEqual(eventFacts);
       expect(
-        rows(files.mockFourcs, "SELECT * FROM mock_transactions ORDER BY id"),
+        rows({
+          path: files.mockFourcs,
+          sql: "SELECT * FROM mock_transactions ORDER BY id",
+        }),
       ).toEqual(providerFacts);
       expect(worker.output()).not.toMatch(
         /mock-webhook-secret|mock-paybridge-key|v1=[a-f0-9]{64}/,

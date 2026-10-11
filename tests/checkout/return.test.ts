@@ -20,11 +20,17 @@ test("merchant return applies authoritative revisions and marks its bound order 
   });
   try {
     const order = orderIdentity.assert(
-      await (await post(merchant.url, "/merchant-a/orders", orderBody)).json(),
+      await (
+        await post({
+          url: merchant.url,
+          path: "/merchant-a/orders",
+          body: orderBody,
+        })
+      ).json(),
     );
     const path = `/merchant-a/orders/${order.id}`;
     const payment = paymentIdentity.assert(
-      await (await post(merchant.url, `${path}/payment`)).json(),
+      await (await post({ url: merchant.url, path: `${path}/payment` })).json(),
     );
     const returnUrl = `${merchant.url}/merchant-a/payment-return?paymentId=${payment.id}`;
     const pending = await fetch(returnUrl);
@@ -44,10 +50,14 @@ test("merchant return applies authoritative revisions and marks its bound order 
     });
     expect(
       (
-        await post(merchant.url, `${path}/confirm`, {
-          commandNumber: 1,
-          mockPaymentMethodRef: "pm_mock_approved",
-          expectedRevision: 1,
+        await post({
+          url: merchant.url,
+          path: `${path}/confirm`,
+          body: {
+            commandNumber: 1,
+            mockPaymentMethodRef: "pm_mock_approved",
+            expectedRevision: 1,
+          },
         })
       ).status,
     ).toBe(202);
@@ -76,14 +86,14 @@ test("merchant return applies authoritative revisions and marks its bound order 
         (result) => JSON.stringify(result) === JSON.stringify(settled),
       ),
     ).toBe(true);
-    expect(rows(files.merchant, "SELECT state, paid_at FROM orders")).toEqual([
-      { state: "PAID", paid_at: settled.paidAt },
-    ]);
     expect(
-      rows(
-        files.merchant,
-        "SELECT last_applied_revision, status FROM merchant_payments",
-      ),
+      rows({ path: files.merchant, sql: "SELECT state, paid_at FROM orders" }),
+    ).toEqual([{ state: "PAID", paid_at: settled.paidAt }]);
+    expect(
+      rows({
+        path: files.merchant,
+        sql: "SELECT last_applied_revision, status FROM merchant_payments",
+      }),
     ).toEqual([{ last_applied_revision: 3, status: "SUCCEEDED" }]);
     await merchant.stop();
     const restarted = await launchMerchant({
@@ -126,20 +136,33 @@ test("FAILED stays refreshable and a delayed older lookup cannot undo PROCESSING
   });
   try {
     const order = orderIdentity.assert(
-      await (await post(merchant.url, "/merchant-a/orders", orderBody)).json(),
+      await (
+        await post({
+          url: merchant.url,
+          path: "/merchant-a/orders",
+          body: orderBody,
+        })
+      ).json(),
     );
     const path = `/merchant-a/orders/${order.id}`;
     const payment = paymentIdentity.assert(
-      await (await post(merchant.url, `${path}/payment`)).json(),
+      await (await post({ url: merchant.url, path: `${path}/payment` })).json(),
     );
-    await post(merchant.url, `${path}/confirm`, {
-      commandNumber: 1,
-      mockPaymentMethodRef: "pm_mock_declined",
-      expectedRevision: 1,
+    await post({
+      url: merchant.url,
+      path: `${path}/confirm`,
+      body: {
+        commandNumber: 1,
+        mockPaymentMethodRef: "pm_mock_declined",
+        expectedRevision: 1,
+      },
     });
     const worker = await services.startWorker();
     await expect
-      .poll(async () => (await lookup(services.url, payment.id)).status)
+      .poll(
+        async () =>
+          (await lookup({ url: services.url, id: payment.id })).status,
+      )
       .toBe("FAILED");
     const returnUrl = `${merchant.url}/merchant-a/payment-return?paymentId=${payment.id}`;
     expect(await (await fetch(returnUrl)).json()).toMatchObject({
@@ -153,10 +176,14 @@ test("FAILED stays refreshable and a delayed older lookup cannot undo PROCESSING
     expect(await provider.message()).toEqual({ kind: "lookup-held" });
     expect(
       (
-        await post(merchant.url, `${path}/confirm`, {
-          commandNumber: 2,
-          mockPaymentMethodRef: "pm_mock_approved",
-          expectedRevision: 3,
+        await post({
+          url: merchant.url,
+          path: `${path}/confirm`,
+          body: {
+            commandNumber: 2,
+            mockPaymentMethodRef: "pm_mock_approved",
+            expectedRevision: 3,
+          },
         })
       ).status,
     ).toBe(202);
@@ -166,7 +193,10 @@ test("FAILED stays refreshable and a delayed older lookup cannot undo PROCESSING
     });
     await services.startWorker();
     await expect
-      .poll(async () => (await lookup(services.url, payment.id)).status)
+      .poll(
+        async () =>
+          (await lookup({ url: services.url, id: payment.id })).status,
+      )
       .toBe("SUCCEEDED");
     const paid = await (await fetch(returnUrl)).json();
     expect(paid).toMatchObject({
@@ -178,10 +208,10 @@ test("FAILED stays refreshable and a delayed older lookup cannot undo PROCESSING
     expect(delayed.status).toBe(200);
     expect(await delayed.json()).toEqual(paid);
     expect(
-      rows(
-        files.merchant,
-        "SELECT last_applied_revision, status FROM merchant_payments",
-      ),
+      rows({
+        path: files.merchant,
+        sql: "SELECT last_applied_revision, status FROM merchant_payments",
+      }),
     ).toEqual([{ last_applied_revision: 5, status: "SUCCEEDED" }]);
   } finally {
     await Promise.all([merchant.stop(), provider.stop()]);
@@ -203,25 +233,41 @@ for (const fault of faults) {
     try {
       order = orderIdentity.assert(
         await (
-          await post(merchant.url, "/merchant-a/orders", orderBody)
+          await post({
+            url: merchant.url,
+            path: "/merchant-a/orders",
+            body: orderBody,
+          })
         ).json(),
       );
       const path = `/merchant-a/orders/${order.id}`;
       payment = paymentIdentity.assert(
-        await (await post(merchant.url, `${path}/payment`)).json(),
+        await (
+          await post({ url: merchant.url, path: `${path}/payment` })
+        ).json(),
       );
-      await post(merchant.url, `${path}/confirm`, {
-        commandNumber: 1,
-        mockPaymentMethodRef: "pm_mock_approved",
-        expectedRevision: 1,
+      await post({
+        url: merchant.url,
+        path: `${path}/confirm`,
+        body: {
+          commandNumber: 1,
+          mockPaymentMethodRef: "pm_mock_approved",
+          expectedRevision: 1,
+        },
       });
       await services.startWorker();
       await expect
-        .poll(async () => (await lookup(services.url, payment.id)).status)
+        .poll(
+          async () =>
+            (await lookup({ url: services.url, id: payment.id })).status,
+        )
         .toBe("SUCCEEDED");
-      expect(rows(files.merchant, "SELECT state, paid_at FROM orders")).toEqual(
-        [{ state: "UNPAID", paid_at: null }],
-      );
+      expect(
+        rows({
+          path: files.merchant,
+          sql: "SELECT state, paid_at FROM orders",
+        }),
+      ).toEqual([{ state: "UNPAID", paid_at: null }]);
       const result = fetch(
         `${merchant.url}/merchant-a/payment-return?paymentId=${payment.id}`,
       ).then(
@@ -243,14 +289,17 @@ for (const fault of faults) {
         await merchant.stop();
         expect(await result).toBe("lost");
       } else expect(await result).toBe(500);
-      expect(rows(files.merchant, "SELECT state, paid_at FROM orders")).toEqual(
-        [{ state: "UNPAID", paid_at: null }],
-      );
       expect(
-        rows(
-          files.merchant,
-          "SELECT last_applied_revision, status, snapshot FROM merchant_payments",
-        ),
+        rows({
+          path: files.merchant,
+          sql: "SELECT state, paid_at FROM orders",
+        }),
+      ).toEqual([{ state: "UNPAID", paid_at: null }]);
+      expect(
+        rows({
+          path: files.merchant,
+          sql: "SELECT last_applied_revision, status, snapshot FROM merchant_payments",
+        }),
       ).toEqual([{ last_applied_revision: 0, status: null, snapshot: null }]);
     } finally {
       await merchant.stop();
@@ -273,12 +322,15 @@ for (const fault of faults) {
       );
       expect(responses.every((response) => response.status === 200)).toBe(true);
       expect(
-        rows(
-          files.merchant,
-          "SELECT last_applied_revision, status FROM merchant_payments",
-        ),
+        rows({
+          path: files.merchant,
+          sql: "SELECT last_applied_revision, status FROM merchant_payments",
+        }),
       ).toEqual([{ last_applied_revision: 3, status: "SUCCEEDED" }]);
-      const paid = rows(files.merchant, "SELECT state, paid_at FROM orders");
+      const paid = rows({
+        path: files.merchant,
+        sql: "SELECT state, paid_at FROM orders",
+      });
       expect(paid).toEqual([{ state: "PAID", paid_at: expect.any(String) }]);
       await first.stop();
       expect(
@@ -288,9 +340,12 @@ for (const fault of faults) {
           )
         ).status,
       ).toBe(200);
-      expect(rows(files.merchant, "SELECT state, paid_at FROM orders")).toEqual(
-        paid,
-      );
+      expect(
+        rows({
+          path: files.merchant,
+          sql: "SELECT state, paid_at FROM orders",
+        }),
+      ).toEqual(paid);
     } finally {
       await Promise.all([first.stop(), second.stop()]);
     }
@@ -308,12 +363,18 @@ for (const status of ["CANCELLED", "UNKNOWN"]) {
     try {
       const order = orderIdentity.assert(
         await (
-          await post(merchant.url, "/merchant-a/orders", orderBody)
+          await post({
+            url: merchant.url,
+            path: "/merchant-a/orders",
+            body: orderBody,
+          })
         ).json(),
       );
       const path = `/merchant-a/orders/${order.id}`;
       const payment = paymentIdentity.assert(
-        await (await post(merchant.url, `${path}/payment`)).json(),
+        await (
+          await post({ url: merchant.url, path: `${path}/payment` })
+        ).json(),
       );
       if (status === "CANCELLED")
         expect(
@@ -328,14 +389,21 @@ for (const status of ["CANCELLED", "UNKNOWN"]) {
           ).status,
         ).toBe(200);
       else {
-        await post(merchant.url, `${path}/confirm`, {
-          commandNumber: 1,
-          mockPaymentMethodRef: "pm_mock_lost_response",
-          expectedRevision: 1,
+        await post({
+          url: merchant.url,
+          path: `${path}/confirm`,
+          body: {
+            commandNumber: 1,
+            mockPaymentMethodRef: "pm_mock_lost_response",
+            expectedRevision: 1,
+          },
         });
         await services.startWorker();
         await expect
-          .poll(async () => (await lookup(services.url, payment.id)).status)
+          .poll(
+            async () =>
+              (await lookup({ url: services.url, id: payment.id })).status,
+          )
           .toBe("UNKNOWN");
       }
       const returnUrl = `${merchant.url}/merchant-a/payment-return?paymentId=${payment.id}`;
@@ -346,16 +414,21 @@ for (const status of ["CANCELLED", "UNKNOWN"]) {
       });
       expect(
         paymentIdentity.assert(
-          await (await post(merchant.url, `${path}/payment`)).json(),
+          await (
+            await post({ url: merchant.url, path: `${path}/payment` })
+          ).json(),
         ).id,
       ).toBe(payment.id);
       await services.server.stop();
       expect((await fetch(returnUrl)).status).toBe(
         status === "CANCELLED" ? 200 : 503,
       );
-      expect(rows(files.merchant, "SELECT state, paid_at FROM orders")).toEqual(
-        [{ state: "UNPAID", paid_at: null }],
-      );
+      expect(
+        rows({
+          path: files.merchant,
+          sql: "SELECT state, paid_at FROM orders",
+        }),
+      ).toEqual([{ state: "UNPAID", paid_at: null }]);
     } finally {
       await merchant.stop();
     }

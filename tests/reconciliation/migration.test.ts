@@ -84,10 +84,10 @@ test("the additive list index retains a preexisting investigation and all earlie
   });
   expect(records(files.paybridge)).toEqual(baseline);
   expect(
-    rows(
-      files.paybridge,
-      "PRAGMA index_info('reconciliations_status_created_at_idx_1bbe8adf')",
-    ).map((row) => row.name),
+    rows({
+      path: files.paybridge,
+      sql: "PRAGMA index_info('reconciliations_status_created_at_idx_1bbe8adf')",
+    }).map((row) => row.name),
   ).toEqual(["status", "created_at"]);
   const migrated = new DatabaseSync(files.paybridge);
   try {

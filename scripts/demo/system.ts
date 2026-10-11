@@ -1,3 +1,4 @@
+import { fixtureReturnOrigins } from "../../contracts/fixtures.ts";
 import { writeFile, rename } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
@@ -11,11 +12,15 @@ type ProcessName =
   | "paybridge-worker"
   | "inbox-worker";
 
-export async function demoSystem(
-  directory: string,
-  paybridgePort: number,
-  signal: AbortSignal,
-) {
+export async function demoSystem({
+  directory,
+  paybridgePort,
+  signal,
+}: {
+  directory: string;
+  paybridgePort: number;
+  signal: AbortSignal;
+}) {
   const processes = new Map<ProcessName, ReturnType<typeof ownedProcess>>();
   const reservations: Awaited<ReturnType<typeof reservePort>>[] = [];
   const history: {
@@ -47,10 +52,13 @@ export async function demoSystem(
     stage = value;
     await persist();
   }
-  async function stop(
-    name: ProcessName,
-    signal: "SIGTERM" | "SIGKILL" = "SIGTERM",
-  ) {
+  async function stop({
+    name,
+    signal = "SIGTERM",
+  }: {
+    name: ProcessName;
+    signal?: "SIGTERM" | "SIGKILL";
+  }) {
     const process = processes.get(name);
     if (!process) return;
     await process.stop(signal);
@@ -63,15 +71,18 @@ export async function demoSystem(
     processes.delete(name);
   }
   async function close() {
-    for (const name of [...processes.keys()].reverse()) await stop(name);
+    for (const name of [...processes.keys()].reverse()) await stop({ name });
     for (const reservation of reservations) await reservation.close();
     await persist();
   }
-  async function stopAndRecord(
-    name: ProcessName,
-    signal: "SIGTERM" | "SIGKILL" = "SIGTERM",
-  ) {
-    await stop(name, signal);
+  async function stopAndRecord({
+    name,
+    signal = "SIGTERM",
+  }: {
+    name: ProcessName;
+    signal?: "SIGTERM" | "SIGKILL";
+  }) {
+    await stop({ name, signal });
     await persist();
   }
   async function reserve(port = 0) {
@@ -87,6 +98,8 @@ export async function demoSystem(
     Object.assign(origins, {
       paybridge: paybridge.origin,
       merchant: merchant.origin,
+      merchantA: fixtureReturnOrigins(merchant.origin)["merchant-a"],
+      merchantB: fixtureReturnOrigins(merchant.origin)["merchant-b"],
       mock: mock.origin,
     });
     await persist();
@@ -94,7 +107,15 @@ export async function demoSystem(
       MERCHANT_ORIGIN: merchant.origin,
       PAYBRIDGE_ORIGIN: paybridge.origin,
     };
-    async function launch(name: ProcessName, entry: string, args: string[]) {
+    async function launch({
+      name,
+      entry,
+      args,
+    }: {
+      name: ProcessName;
+      entry: string;
+      args: string[];
+    }) {
       signal.throwIfAborted();
       const process = ownedProcess({
         entrypoint: fileURLToPath(
@@ -115,43 +136,55 @@ export async function demoSystem(
       signal.throwIfAborted();
     }
     const startMock = () =>
-      launch("mock", "mock-fourcs/main.ts", [files.mock, String(mock.port)]);
+      launch({
+        name: "mock",
+        entry: "mock-fourcs/main.ts",
+        args: [files.mock, String(mock.port)],
+      });
     const startMerchant = () =>
-      launch("merchant-api", "merchant/server.ts", [
-        files.merchant,
-        String(merchant.port),
-        paybridge.origin,
-        merchant.origin,
-      ]);
+      launch({
+        name: "merchant-api",
+        entry: "merchant/server.ts",
+        args: [
+          files.merchant,
+          String(merchant.port),
+          paybridge.origin,
+          merchant.origin,
+        ],
+      });
     const startWorker = () =>
-      launch("paybridge-worker", "paybridge/worker.ts", [
-        files.paybridge,
-        mock.origin,
-        "1000",
-        "5000",
-        "25",
-        "100",
-        "500",
-      ]);
+      launch({
+        name: "paybridge-worker",
+        entry: "paybridge/worker.ts",
+        args: [
+          files.paybridge,
+          mock.origin,
+          "1000",
+          "5000",
+          "25",
+          "100",
+          "500",
+        ],
+      });
     const startInbox = () =>
-      launch("inbox-worker", "merchant/worker.ts", [
-        files.merchant,
-        "5000",
-        "25",
-        "100",
-        "500",
-      ]);
+      launch({
+        name: "inbox-worker",
+        entry: "merchant/worker.ts",
+        args: [files.merchant, "5000", "25", "100", "500"],
+      });
     await mock.close();
     await startMock();
     await paybridge.close();
-    await launch("paybridge-api", "paybridge/server.ts", [
-      files.paybridge,
-      String(paybridge.port),
-    ]);
+    await launch({
+      name: "paybridge-api",
+      entry: "paybridge/server.ts",
+      args: [files.paybridge, String(paybridge.port)],
+    });
     await merchant.close();
     await startMerchant();
     return {
       files,
+      returnOrigins: fixtureReturnOrigins(merchant.origin),
       paybridge: paybridge.origin,
       merchant: merchant.origin,
       mock: mock.origin,

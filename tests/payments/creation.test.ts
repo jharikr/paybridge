@@ -77,17 +77,21 @@ test("creation replays exact acknowledgments, conflicts on changed input, and sc
   const server = startNodeProcess({ entrypoint, args: [files.paybridge, "0"] });
   try {
     const { url } = ready.assert(await server.message());
-    const create = (
-      body: unknown = input,
+    const create = ({
+      body = input,
       key = "create-1",
       authorization = headers.authorization,
-    ) =>
+    }: {
+      body?: unknown;
+      key?: string;
+      authorization?: string;
+    }) =>
       fetch(`${url}/v1/payment-intents`, {
         method: "POST",
         headers: { ...headers, "idempotency-key": key, authorization },
         body: JSON.stringify(body),
       });
-    const first = await create();
+    const first = await create({});
     expect(first.status).toBe(201);
     const original = await first.text();
     const originalId = created.assert(JSON.parse(original)).id;
@@ -98,7 +102,7 @@ test("creation replays exact acknowledgments, conflicts on changed input, and sc
       amount: input.amount,
       merchantReference: input.merchantReference,
     };
-    const replay = await create(reordered);
+    const replay = await create({ body: reordered });
     expect(replay.status).toBe(201);
     expect(replay.headers.get("x-content-type-options")).toBe("nosniff");
     expect(await replay.text()).toBe(original);
@@ -109,7 +113,7 @@ test("creation replays exact acknowledgments, conflicts on changed input, and sc
       { ...input, description: "Changed" },
       { ...input, returnUrl: `${input.returnUrl}?different=1` },
     ]) {
-      const conflict = await create(changed);
+      const conflict = await create({ body: changed });
       expect(conflict.status).toBe(409);
       expect(conflict.headers.get("retry-after")).toBeNull();
       expect(await conflict.json()).toMatchObject({
@@ -117,8 +121,12 @@ test("creation replays exact acknowledgments, conflicts on changed input, and sc
       });
     }
     const [otherKey, otherMerchant] = await Promise.all([
-      create(input, "create-2"),
-      create(input, "create-1", "Bearer mock-paybridge-key-b"),
+      create({ body: input, key: "create-2" }),
+      create({
+        body: { ...input, returnUrl: "http://localhost:3101/payment-return" },
+        key: "create-1",
+        authorization: "Bearer mock-paybridge-key-b",
+      }),
     ]);
     expect(otherKey.status).toBe(201);
     expect(otherMerchant.status).toBe(201);
@@ -134,10 +142,13 @@ test("merchant ownership and strict request validation reject invalid alternativ
   const server = startNodeProcess({ entrypoint, args: [files.paybridge, "0"] });
   try {
     const { url } = ready.assert(await server.message());
-    const create = (
-      body: unknown,
-      customHeaders: Record<string, string> = headers,
-    ) =>
+    const create = ({
+      body,
+      customHeaders = headers,
+    }: {
+      body: unknown;
+      customHeaders?: Record<string, string>;
+    }) =>
       fetch(`${url}/v1/payment-intents`, {
         method: "POST",
         headers: customHeaders,
@@ -149,14 +160,22 @@ test("merchant ownership and strict request validation reject invalid alternativ
       "Basic mock-paybridge-key-a",
       "Bearer mock-provider-key-a",
     ]) {
-      expect((await create(input, { ...headers, authorization })).status).toBe(
-        401,
-      );
+      expect(
+        (
+          await create({
+            body: input,
+            customHeaders: { ...headers, authorization },
+          })
+        ).status,
+      ).toBe(401);
     }
     for (const key of ["", "x".repeat(129)]) {
-      const rejected = await create(input, {
-        ...headers,
-        "idempotency-key": key,
+      const rejected = await create({
+        body: input,
+        customHeaders: {
+          ...headers,
+          "idempotency-key": key,
+        },
       });
       expect(rejected.status).toBe(400);
       expect(await rejected.json()).toMatchObject({
@@ -164,7 +183,9 @@ test("merchant ownership and strict request validation reject invalid alternativ
       });
     }
     const { "idempotency-key": _key, ...withoutKey } = headers;
-    expect((await create(input, withoutKey)).status).toBe(400);
+    expect(
+      (await create({ body: input, customHeaders: withoutKey })).status,
+    ).toBe(400);
     for (const body of [
       ...[0, -1, 1.25, 10_000_000_000, 9007199254740992, "7500"].map(
         (amount) => ({ ...input, amount }),
@@ -186,17 +207,19 @@ test("merchant ownership and strict request validation reject invalid alternativ
         `${input.returnUrl}#fragment`,
       ].map((returnUrl) => ({ ...input, returnUrl })),
     ]) {
-      const rejected = await create(body);
+      const rejected = await create({ body });
       expect(rejected.status, JSON.stringify(body)).toBe(400);
       expect(await rejected.json()).toMatchObject({
         error: { code: "invalid_request" },
       });
     }
     const accepted = await create({
-      ...input,
-      merchantReference: "😀".repeat(64),
-      description: "<script>alert('inert')</script>",
-      amount: 9_999_999_999,
+      body: {
+        ...input,
+        merchantReference: "😀".repeat(64),
+        description: "<script>alert('inert')</script>",
+        amount: 9_999_999_999,
+      },
     });
     expect(accepted.status).toBe(201);
     const body = created.assert(await accepted.json());
@@ -268,7 +291,10 @@ test("inactive merchant credentials stay disabled after restart", async () => {
     const allowed = await fetch(`${url}/v1/payment-intents`, {
       method: "POST",
       headers: { ...headers, authorization: "Bearer mock-paybridge-key-b" },
-      body: JSON.stringify(input),
+      body: JSON.stringify({
+        ...input,
+        returnUrl: "http://localhost:3101/payment-return",
+      }),
     });
     expect(allowed.status).toBe(201);
   } finally {

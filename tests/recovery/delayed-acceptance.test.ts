@@ -11,11 +11,16 @@ test("a timed-out request can be accepted later; empty ledger evidence never per
   await using files = await isolatedDatabases();
   await using app = await journey(files);
   const { id } = type({ id: "string" }).assert(
-    await (await create(app.url)).json(),
+    await (await create({ url: app.url })).json(),
   );
   expect(
-    (await confirm(app.url, id, { fixture: "pm_mock_held_before_acceptance" }))
-      .status,
+    (
+      await confirm({
+        url: app.url,
+        id,
+        options: { fixture: "pm_mock_held_before_acceptance" },
+      })
+    ).status,
   ).toBe(202);
   const original = identity(files.paybridge);
   const worker = await app.startWorker({ timeout: 300, lease: 1000 });
@@ -27,14 +32,14 @@ test("a timed-out request can be accepted later; empty ledger evidence never per
   });
   expect(ledger(files.mockFourcs)).toEqual([]);
   await expect
-    .poll(() => lookup(app.url, id))
+    .poll(() => lookup({ url: app.url, id }))
     .toMatchObject({
       status: "UNKNOWN",
       revision: 3,
       latestAttempt: { failureCode: "Timeout" },
     });
   const unknown = records(files.paybridge);
-  const snapshot = await lookup(app.url, id);
+  const snapshot = await lookup({ url: app.url, id });
   expect(ledger(files.mockFourcs)).toEqual([]);
   expect(unknown.cases).toMatchObject([
     { status: "REQUIRED", reason: "Timeout" },
@@ -49,9 +54,13 @@ test("a timed-out request can be accepted later; empty ledger evidence never per
     },
   ]);
   expect(unknown.webhooks).toMatchObject([{ event_type: "payment.unknown" }]);
-  const rejected = await confirm(app.url, id, {
-    key: "empty-ledger-retry",
-    revision: 3,
+  const rejected = await confirm({
+    url: app.url,
+    id,
+    options: {
+      key: "empty-ledger-retry",
+      revision: 3,
+    },
   });
   expect(rejected.status).toBe(409);
   expect(await rejected.json()).toMatchObject({
@@ -95,11 +104,16 @@ test("a timed-out request can be accepted later; empty ledger evidence never per
   expect(ledger(files.mockFourcs)).toMatchObject([
     { final_outcome: "Approved", effect_count: 1 },
   ]);
-  expect(await lookup(app.url, id)).toEqual(snapshot);
+  expect(await lookup({ url: app.url, id })).toEqual(snapshot);
   expect(records(files.paybridge)).toEqual(unknown);
   expect(
-    (await confirm(app.url, id, { key: "accepted-later-retry", revision: 3 }))
-      .status,
+    (
+      await confirm({
+        url: app.url,
+        id,
+        options: { key: "accepted-later-retry", revision: 3 },
+      })
+    ).status,
   ).toBe(409);
   expect(worker.output()).not.toMatch(
     /mock-provider-key|<MerchantKey>|9900000000000008/,

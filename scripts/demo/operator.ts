@@ -20,13 +20,16 @@ const listed = type({
   }).array(),
 });
 
-export async function operatorCommands(
-  directory: string,
-  files: { paybridge: string; mock: string },
-) {
+export async function operatorCommands({
+  directory,
+  files,
+}: {
+  directory: string;
+  files: { paybridge: string; mock: string };
+}) {
   const operatorDirectory = join(directory, "operator");
   await mkdir(operatorDirectory, { mode: 0o700 });
-  async function command(name: string, input: unknown) {
+  async function command({ name, input }: { name: string; input: unknown }) {
     const path = join(operatorDirectory, `${name}.json`);
     await writeFile(path, JSON.stringify(input, null, 2) + "\n", {
       mode: 0o600,
@@ -45,8 +48,11 @@ export async function operatorCommands(
       await child.stop();
     }
   }
-  const result = await command("list", { kind: "list" });
-  requireDemo(result.code === 0, "reconciliation_list_failed");
+  const result = await command({ name: "list", input: { kind: "list" } });
+  requireDemo({
+    condition: result.code === 0,
+    code: "reconciliation_list_failed",
+  });
   const cases = listed.assert(result.value).cases;
   async function resolve({
     id,
@@ -57,17 +63,23 @@ export async function operatorCommands(
     name: string;
     resolution: "SUCCEEDED" | "FAILED" | "ABSENT";
   }) {
-    const item = cases.find((item) => item.paymentIntentId === id);
-    requireDemo(item, "reconciliation_missing");
-    const started = await command(`start-${name}`, {
-      kind: "start",
-      reconciliationId: item.id,
-      operator: "demo-operator",
+    const item = requireDemo({
+      condition: cases.find((item) => item.paymentIntentId === id),
+      code: "reconciliation_missing",
     });
-    requireDemo(
-      started.code === 0 && type({ kind: "'started'" }).allows(started.value),
-      "reconciliation_start_failed",
-    );
+    const started = await command({
+      name: `start-${name}`,
+      input: {
+        kind: "start",
+        reconciliationId: item.id,
+        operator: "demo-operator",
+      },
+    });
+    requireDemo({
+      condition:
+        started.code === 0 && type({ kind: "'started'" }).allows(started.value),
+      code: "reconciliation_start_failed",
+    });
     const inspector = ownedProcess({
       entrypoint: fileURLToPath(
         new URL("../../apps/mock-fourcs/inspect.ts", import.meta.url),
@@ -77,7 +89,10 @@ export async function operatorCommands(
     });
     const inspected = await inspector.result();
     await inspector.stop();
-    requireDemo(inspected.code === 0, "ledger_inspection_failed");
+    requireDemo({
+      condition: inspected.code === 0,
+      code: "ledger_inspection_failed",
+    });
     const base = {
       kind: "resolve",
       reconciliationId: item.id,
@@ -92,17 +107,21 @@ export async function operatorCommands(
         providerAccount: "string",
         tranId: "string",
       }).assert(inspected.value);
-      const rejected = await command("reject-absent", {
-        ...base,
-        evidence: absent,
+      const rejected = await command({
+        name: "reject-absent",
+        input: {
+          ...base,
+          evidence: absent,
+        },
       });
-      requireDemo(
-        rejected.code === 1 &&
+      requireDemo({
+        condition:
+          rejected.code === 1 &&
           type({ kind: "'error'", code: "'invalid_command'" }).allows(
             rejected.value,
           ),
-        "absent_evidence_accepted",
-      );
+        code: "absent_evidence_accepted",
+      });
       return;
     }
     const recorded = type({
@@ -110,29 +129,35 @@ export async function operatorCommands(
       evidence: finalEvidence,
     }).assert(inspected.value);
     const input = resolutionCommand.assert({ ...base, evidence: recorded });
-    const resolved = await command(`resolve-${name}`, input);
-    requireDemo(
-      resolved.code === 0 &&
+    const resolved = await command({ name: `resolve-${name}`, input });
+    requireDemo({
+      condition:
+        resolved.code === 0 &&
         type({ kind: "'resolved'" }).allows(resolved.value),
-      "reconciliation_resolution_failed",
-    );
-    const replay = await command(`replay-${name}`, input);
-    requireDemo(
-      replay.code === 0 &&
-        JSON.stringify(replay.value) === JSON.stringify(resolved.value),
-      "reconciliation_replay_changed",
-    );
-    const conflict = await command(`conflict-${name}`, {
-      ...input,
-      reason: "Conflicting replacement is forbidden.",
+      code: "reconciliation_resolution_failed",
     });
-    requireDemo(
-      conflict.code === 1 &&
+    const replay = await command({ name: `replay-${name}`, input });
+    requireDemo({
+      condition:
+        replay.code === 0 &&
+        JSON.stringify(replay.value) === JSON.stringify(resolved.value),
+      code: "reconciliation_replay_changed",
+    });
+    const conflict = await command({
+      name: `conflict-${name}`,
+      input: {
+        ...input,
+        reason: "Conflicting replacement is forbidden.",
+      },
+    });
+    requireDemo({
+      condition:
+        conflict.code === 1 &&
         type({ kind: "'error'", code: "'reconciliation_conflict'" }).allows(
           conflict.value,
         ),
-      "reconciliation_conflict_accepted",
-    );
+      code: "reconciliation_conflict_accepted",
+    });
   }
   return { resolve };
 }

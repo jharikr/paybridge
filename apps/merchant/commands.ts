@@ -68,7 +68,8 @@ export async function recoverCommand({
     orderId: id,
     merchantId: merchant.id,
   }).first();
-  if (!command) throw new MerchantError(404, "command_not_found");
+  if (!command)
+    throw new MerchantError({ status: 404, code: "command_not_found" });
   return command;
 }
 
@@ -92,7 +93,8 @@ export async function prepareCreation({
       id,
       merchantId: merchant.id,
     }).first();
-    if (!order) throw new MerchantError(404, "order_not_found");
+    if (!order)
+      throw new MerchantError({ status: 404, code: "order_not_found" });
     const existing = await tx.orm.MerchantCommand.where({
       orderId: id,
       merchantId: merchant.id,
@@ -162,7 +164,8 @@ export async function prepareConfirmation({
       id,
       merchantId: merchant.id,
     }).first();
-    if (!order) throw new MerchantError(404, "order_not_found");
+    if (!order)
+      throw new MerchantError({ status: 404, code: "order_not_found" });
     const existing = await tx.orm.MerchantCommand.where({
       orderId: id,
       merchantId: merchant.id,
@@ -171,14 +174,18 @@ export async function prepareConfirmation({
     }).first();
     if (existing) {
       if (existing.requestBody !== body)
-        throw new MerchantError(409, "command_input_conflict");
+        throw new MerchantError({
+          status: 409,
+          code: "command_input_conflict",
+        });
       return existing;
     }
     const payment = await tx.orm.MerchantPayment.where({
       orderId: id,
       merchantId: merchant.id,
     }).first();
-    if (!payment) throw new MerchantError(409, "payment_not_created");
+    if (!payment)
+      throw new MerchantError({ status: 409, code: "payment_not_created" });
     const previous = await tx.orm.MerchantCommand.where({
       orderId: id,
       merchantId: merchant.id,
@@ -187,9 +194,12 @@ export async function prepareConfirmation({
       .orderBy((command) => command.commandNumber.desc())
       .first();
     if (previous?.status === "PREPARED")
-      throw new MerchantError(409, "command_recovery_required");
+      throw new MerchantError({
+        status: 409,
+        code: "command_recovery_required",
+      });
     if (input.commandNumber !== (previous?.commandNumber ?? 0) + 1)
-      throw new MerchantError(409, "command_number_conflict");
+      throw new MerchantError({ status: 409, code: "command_number_conflict" });
     const commandId = `mc_${randomBytes(16).toString("hex")}`;
     await tx.execute(
       db.raw.sql`
@@ -248,7 +258,10 @@ export async function executeCommand({
         created.status !== "PENDING" ||
         created.revision !== 1
       )
-        throw new MerchantError(502, "invalid_paybridge_acknowledgment");
+        throw new MerchantError({
+          status: 502,
+          code: "invalid_paybridge_acknowledgment",
+        });
       createdId = created.id;
     } else {
       const accepted = confirmationAcknowledgment(response.value);
@@ -261,7 +274,10 @@ export async function executeCommand({
         accepted.paymentIntentId !== order.paymentIntentId ||
         accepted.revision !== input.expectedRevision + 1
       )
-        throw new MerchantError(502, "invalid_paybridge_acknowledgment");
+        throw new MerchantError({
+          status: 502,
+          code: "invalid_paybridge_acknowledgment",
+        });
     }
   }
   await checkpoint?.({ kind: "received", commandId: command.id });

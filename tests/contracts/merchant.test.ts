@@ -39,7 +39,11 @@ test("each merchant command, local view, lookup, recovery and return matches its
         contract,
         path: ordersPath,
         method: "post",
-        response: await post(merchant.url, "/merchant-a/orders", orderBody),
+        response: await post({
+          url: merchant.url,
+          path: "/merchant-a/orders",
+          body: orderBody,
+        }),
         status: 201,
       }),
     );
@@ -49,7 +53,11 @@ test("each merchant command, local view, lookup, recovery and return matches its
         contract,
         path: ordersPath,
         method: "post",
-        response: await post(merchant.url, "/merchant-a/orders", orderBody),
+        response: await post({
+          url: merchant.url,
+          path: "/merchant-a/orders",
+          body: orderBody,
+        }),
         status: 200,
       }),
     ).toMatchObject({ id: order.id, state: "UNPAID" });
@@ -62,7 +70,10 @@ test("each merchant command, local view, lookup, recovery and return matches its
         status: 200,
       }),
     ).toMatchObject({ id: order.id, paymentIntentId: null });
-    const creation = await post(merchant.url, `${localPath}/payment`);
+    const creation = await post({
+      url: merchant.url,
+      path: `${localPath}/payment`,
+    });
     const creationCommand = type("string").assert(
       creation.headers.get("x-merchant-command-id"),
     );
@@ -81,10 +92,10 @@ test("each merchant command, local view, lookup, recovery and return matches its
         contract,
         path: recoverPath,
         method: "post",
-        response: await post(
-          merchant.url,
-          `${localPath}/commands/${creationCommand}/recover`,
-        ),
+        response: await post({
+          url: merchant.url,
+          path: `${localPath}/commands/${creationCommand}/recover`,
+        }),
         status: 201,
         headers: acknowledgmentHeaders,
       }),
@@ -108,11 +119,11 @@ test("each merchant command, local view, lookup, recovery and return matches its
       expectedRevision: 1,
       mockPaymentMethodRef: "pm_mock_approved",
     };
-    const confirmation = await post(
-      merchant.url,
-      `${localPath}/confirm`,
-      input,
-    );
+    const confirmation = await post({
+      url: merchant.url,
+      path: `${localPath}/confirm`,
+      body: input,
+    });
     const confirmationCommand = type("string").assert(
       confirmation.headers.get("x-merchant-command-id"),
     );
@@ -156,10 +167,10 @@ test("each merchant command, local view, lookup, recovery and return matches its
         contract,
         path: recoverPath,
         method: "post",
-        response: await post(
-          merchant.url,
-          `${localPath}/commands/${confirmationCommand}/recover`,
-        ),
+        response: await post({
+          url: merchant.url,
+          path: `${localPath}/commands/${confirmationCommand}/recover`,
+        }),
         status: 202,
         headers: acknowledgmentHeaders,
       }),
@@ -206,9 +217,13 @@ test("each merchant command, local view, lookup, recovery and return matches its
       payment: { status: "PROCESSING", revision: 2 },
     });
 
-    const rejected = await post(merchant.url, `${localPath}/confirm`, {
-      ...input,
-      commandNumber: 2,
+    const rejected = await post({
+      url: merchant.url,
+      path: `${localPath}/confirm`,
+      body: {
+        ...input,
+        commandNumber: 2,
+      },
     });
     const rejectedCommand = type("string").assert(
       rejected.headers.get("x-merchant-command-id"),
@@ -234,10 +249,10 @@ test("each merchant command, local view, lookup, recovery and return matches its
         contract,
         path: recoverPath,
         method: "post",
-        response: await post(
-          merchant.url,
-          `${localPath}/commands/${rejectedCommand}/recover`,
-        ),
+        response: await post({
+          url: merchant.url,
+          path: `${localPath}/commands/${rejectedCommand}/recover`,
+        }),
         status: 409,
         headers: [
           "cache-control",
@@ -390,17 +405,24 @@ test("each merchant command, local view, lookup, recovery and return matches its
     ]) {
       const response =
         scenario.method === "post"
-          ? await post(merchant.url, scenario.target, scenario.body)
+          ? await post({
+              url: merchant.url,
+              path: scenario.target,
+              body: scenario.body,
+            })
           : await fetch(merchant.url + scenario.target);
       await compareResponse({ contract, ...scenario, response });
       expect(response.headers.get("x-merchant-command-id")).toBeNull();
     }
     expect(
-      rows(files.paybridge, "SELECT count(*) AS count FROM payment_attempts"),
+      rows({
+        path: files.paybridge,
+        sql: "SELECT count(*) AS count FROM payment_attempts",
+      }),
     ).toEqual([{ count: 1 }]);
-    expect(rows(files.merchant, "SELECT state,paid_at FROM orders")).toEqual([
-      { state: "UNPAID", paid_at: null },
-    ]);
+    expect(
+      rows({ path: files.merchant, sql: "SELECT state,paid_at FROM orders" }),
+    ).toEqual([{ state: "UNPAID", paid_at: null }]);
     await services.server.stop();
     for (const scenario of [
       { path: paymentPath, target: `${localPath}/payment` },
@@ -434,11 +456,19 @@ test("a wrong local upstream produces documented 502 responses without replacing
   });
   try {
     const order = orderIdentity.assert(
-      await (await post(merchant.url, "/merchant-a/orders", orderBody)).json(),
+      await (
+        await post({
+          url: merchant.url,
+          path: "/merchant-a/orders",
+          body: orderBody,
+        })
+      ).json(),
     );
     const target = `/merchant-a/orders/${order.id}`;
     const payment = paymentIdentity.assert(
-      await (await post(merchant.url, `${target}/payment`)).json(),
+      await (
+        await post({ url: merchant.url, path: `${target}/payment` })
+      ).json(),
     );
     await merchant.stop();
     // The real mock API is the wrong upstream and returns a different 404 envelope.
@@ -463,9 +493,13 @@ test("a wrong local upstream produces documented 502 responses without replacing
     }
     const unbound = orderIdentity.assert(
       await (
-        await post(merchant.url, "/merchant-a/orders", {
-          ...orderBody,
-          businessReference: "UNBOUND",
+        await post({
+          url: merchant.url,
+          path: "/merchant-a/orders",
+          body: {
+            ...orderBody,
+            businessReference: "UNBOUND",
+          },
         })
       ).json(),
     );
@@ -475,7 +509,10 @@ test("a wrong local upstream produces documented 502 responses without replacing
         contract,
         path: paymentPath,
         method: "post",
-        response: await post(merchant.url, `${unboundPath}/payment`),
+        response: await post({
+          url: merchant.url,
+          path: `${unboundPath}/payment`,
+        }),
         status: 502,
       }),
     ).toMatchObject({ error: { code: "invalid_paybridge_response" } });
@@ -491,10 +528,10 @@ test("a wrong local upstream produces documented 502 responses without replacing
         contract,
         path: recoverPath,
         method: "post",
-        response: await post(
-          merchant.url,
-          `${unboundPath}/commands/${command.id}/recover`,
-        ),
+        response: await post({
+          url: merchant.url,
+          path: `${unboundPath}/commands/${command.id}/recover`,
+        }),
         status: 502,
       }),
     ).toMatchObject({ error: { code: "invalid_paybridge_response" } });
@@ -503,23 +540,28 @@ test("a wrong local upstream produces documented 502 responses without replacing
       contract,
       path: recoverPath,
       method: "post",
-      response: await post(
-        merchant.url,
-        `${unboundPath}/commands/${command.id}/recover`,
-      ),
+      response: await post({
+        url: merchant.url,
+        path: `${unboundPath}/commands/${command.id}/recover`,
+      }),
       status: 503,
       headers: ["cache-control", "x-content-type-options", "retry-after"],
     });
     expect(
-      rows(
-        files.merchant,
-        "SELECT payment_intent_id,last_applied_revision FROM merchant_payments",
-      ),
+      rows({
+        path: files.merchant,
+        sql: "SELECT payment_intent_id,last_applied_revision FROM merchant_payments",
+      }),
     ).toEqual([{ payment_intent_id: payment.id, last_applied_revision: 0 }]);
     expect(
-      rows(files.paybridge, "SELECT count(*) AS count FROM payment_intents"),
+      rows({
+        path: files.paybridge,
+        sql: "SELECT count(*) AS count FROM payment_intents",
+      }),
     ).toEqual([{ count: 1 }]);
-    expect(rows(files.merchant, "SELECT state,paid_at FROM orders")).toEqual([
+    expect(
+      rows({ path: files.merchant, sql: "SELECT state,paid_at FROM orders" }),
+    ).toEqual([
       { state: "UNPAID", paid_at: null },
       { state: "UNPAID", paid_at: null },
     ]);

@@ -20,7 +20,9 @@ for (const status of [
   test(`leave is repeatable navigation only in ${status}`, async () => {
     await using files = await isolatedDatabases();
     await using services = await journey(files);
-    const payment = creation.assert(await (await create(services.url)).json());
+    const payment = creation.assert(
+      await (await create({ url: services.url })).json(),
+    );
     if (status === "CANCELLED")
       expect(
         (
@@ -51,7 +53,10 @@ for (const status of [
       if (status !== "PROCESSING") {
         await services.startWorker();
         await expect
-          .poll(async () => (await lookup(services.url, payment.id)).status)
+          .poll(
+            async () =>
+              (await lookup({ url: services.url, id: payment.id })).status,
+          )
           .toBe(status);
       }
     }
@@ -83,7 +88,7 @@ for (const status of [
       url: services.url,
       payment,
       key: "deliberate-after-leaving",
-      revision: (await lookup(services.url, payment.id)).revision,
+      revision: (await lookup({ url: services.url, id: payment.id })).revision,
     });
     expect(retry.status).toBe(
       status === "PENDING" || status === "FAILED" ? 303 : 409,
@@ -102,7 +107,7 @@ test("checkout uses only a stored permitted URL, preserves query values, and omi
     returnUrl:
       "http://127.0.0.1:3101/merchant-a/payment-return?order=a%26b%20%F0%9F%98%80&paymentId=old",
   };
-  const send = (returnUrl: string, key: string) =>
+  const send = ({ returnUrl, key }: { returnUrl: string; key: string }) =>
     fetch(`${services.url}/v1/payment-intents`, {
       method: "POST",
       headers: { ...headers(), "idempotency-key": key },
@@ -115,8 +120,10 @@ test("checkout uses only a stored permitted URL, preserves query values, and omi
     "https://evil.example/return",
     "http://user:password@127.0.0.1:3101/return",
   ])
-    expect((await send(returnUrl, `unsafe-${returnUrl}`)).status).toBe(400);
-  const response = await send(input.returnUrl, "safe");
+    expect((await send({ returnUrl, key: `unsafe-${returnUrl}` })).status).toBe(
+      400,
+    );
+  const response = await send({ returnUrl: input.returnUrl, key: "safe" });
   expect(response.status).toBe(201);
   const payment = creation.assert(await response.json());
   const display = await fetch(checkout({ url: services.url, payment }));
@@ -141,7 +148,9 @@ test("deactivation removes capability access including cached checkout replays",
     fault: "lookup",
   });
   try {
-    const payment = creation.assert(await (await create(server.url)).json());
+    const payment = creation.assert(
+      await (await create({ url: server.url })).json(),
+    );
     expect((await checkoutConfirm({ url: server.url, payment })).status).toBe(
       303,
     );
@@ -162,7 +171,7 @@ test("deactivation removes capability access including cached checkout replays",
       ).status,
     ).toBe(404);
     expect(
-      rows(files.paybridge, "SELECT id FROM payment_attempts"),
+      rows({ path: files.paybridge, sql: "SELECT id FROM payment_attempts" }),
     ).toHaveLength(1);
   } finally {
     await server.stop();

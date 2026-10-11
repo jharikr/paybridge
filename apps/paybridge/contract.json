@@ -1557,16 +1557,7 @@
                   }
                 }
               ],
-              "indexes": [
-                {
-                  "columns": [
-                    "merchant_id"
-                  ],
-                  "name": "idempotency_keys_merchant_id_idx_92be5ce7",
-                  "prefix": "idempotency_keys_merchant_id_idx",
-                  "unique": false
-                }
-              ],
+              "indexes": [],
               "primaryKey": {
                 "columns": [
                   "merchant_id",
@@ -1744,16 +1735,7 @@
                   }
                 }
               ],
-              "indexes": [
-                {
-                  "columns": [
-                    "payment_intent_id"
-                  ],
-                  "name": "payment_attempts_payment_intent_id_idx_2dc6a9d2",
-                  "prefix": "payment_attempts_payment_intent_id_idx",
-                  "unique": false
-                }
-              ],
+              "indexes": [],
               "primaryKey": {
                 "columns": [
                   "id"
@@ -1853,10 +1835,11 @@
               "indexes": [
                 {
                   "columns": [
-                    "payment_intent_id"
+                    "payment_intent_id",
+                    "created_at"
                   ],
-                  "name": "payment_events_payment_intent_id_idx_2dc6a9d2",
-                  "prefix": "payment_events_payment_intent_id_idx",
+                  "name": "payment_events_payment_intent_id_created_at_idx_e9f35b8e",
+                  "prefix": "payment_events_payment_intent_id_created_at_idx",
                   "unique": false
                 }
               ],
@@ -1956,10 +1939,28 @@
               "indexes": [
                 {
                   "columns": [
-                    "merchant_id"
+                    "created_at"
                   ],
-                  "name": "payment_intents_merchant_id_idx_92be5ce7",
-                  "prefix": "payment_intents_merchant_id_idx",
+                  "name": "payment_intents_created_at_idx_225d8c0f",
+                  "prefix": "payment_intents_created_at_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "merchant_id",
+                    "merchant_reference"
+                  ],
+                  "name": "payment_intents_merchant_id_merchant_reference_idx_560fb5c7",
+                  "prefix": "payment_intents_merchant_id_merchant_reference_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "merchant_id",
+                    "status"
+                  ],
+                  "name": "payment_intents_merchant_id_status_idx_06a43d97",
+                  "prefix": "payment_intents_merchant_id_status_idx",
                   "unique": false
                 }
               ],
@@ -2375,14 +2376,6 @@
                 },
                 {
                   "columns": [
-                    "merchant_id"
-                  ],
-                  "name": "webhook_outbox_merchant_id_idx_92be5ce7",
-                  "prefix": "webhook_outbox_merchant_id_idx",
-                  "unique": false
-                },
-                {
-                  "columns": [
                     "payment_intent_id"
                   ],
                   "name": "webhook_outbox_payment_intent_id_idx_2dc6a9d2",
@@ -2426,7 +2419,7 @@
         "id": "__unbound__"
       }
     },
-    "storageHash": "d5ae02ff34d91917746b2e5234ed309301094356de0c4b79b857da2b3d90e0d8"
+    "storageHash": "90bb09ae6a605504ed3bdf17e5137c2ad2d4aa3b7891ac0f7d7d546b4e88355b"
   },
   "capabilities": {
     "sql": {

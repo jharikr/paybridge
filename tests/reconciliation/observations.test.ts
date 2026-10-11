@@ -17,21 +17,26 @@ test("absent ledger evidence cannot resolve failure; delayed acceptance can late
   await using files = await isolatedDatabases();
   await using app = await journey(files);
   const { id } = type({ id: "string" }).assert(
-    await (await create(app.url)).json(),
+    await (await create({ url: app.url })).json(),
   );
   expect(
-    (await confirm(app.url, id, { fixture: "pm_mock_held_before_acceptance" }))
-      .status,
+    (
+      await confirm({
+        url: app.url,
+        id,
+        options: { fixture: "pm_mock_held_before_acceptance" },
+      })
+    ).status,
   ).toBe(202);
   const original = identity(files.paybridge);
   await app.startWorker({ timeout: 300, lease: 1000 });
   const gate = mockGate.assert(await app.mock.message());
   expect(gate.kind).toBe("before-acceptance");
   await expect
-    .poll(() => lookup(app.url, id))
+    .poll(() => lookup({ url: app.url, id }))
     .toMatchObject({ status: "UNKNOWN", revision: 3 });
   const { id: reconciliationId } = type({ id: "string" }).assert(
-    rows(files.paybridge, "SELECT id FROM reconciliations")[0],
+    rows({ path: files.paybridge, sql: "SELECT id FROM reconciliations" })[0],
   );
   const started = await command({
     path: files.paybridge,
@@ -40,33 +45,43 @@ test("absent ledger evidence cannot resolve failure; delayed acceptance can late
   });
   expect(started.code).toBe(0);
   const before = records(files.paybridge);
-  const absent = await inspect(
-    files.mockFourcs,
-    original.provider_account_ref,
-    original.provider_transaction_id,
-  );
+  const absent = await inspect({
+    path: files.mockFourcs,
+    account: original.provider_account_ref,
+    tranId: original.provider_transaction_id,
+  });
   expect(absent).toMatchObject({ kind: "absent" });
   const rejected = await command({
     path: files.paybridge,
     directory: files.directory,
-    input: resolutionInput(reconciliationId, absent, "FAILED"),
+    input: resolutionInput({
+      reconciliationId,
+      evidence: absent,
+      resolution: "FAILED",
+    }),
   });
   expect(rejected.body).toEqual({ kind: "error", code: "invalid_command" });
   expect(records(files.paybridge)).toEqual(before);
   expect(ledger(files.mockFourcs)).toEqual([]);
   expect(
-    (await confirm(app.url, id, { key: "absent-retry", revision: 3 })).status,
+    (
+      await confirm({
+        url: app.url,
+        id,
+        options: { key: "absent-retry", revision: 3 },
+      })
+    ).status,
   ).toBe(409);
   app.mock.child.send({ kind: "release", gateId: gate.gateId });
   expect(await app.mock.message()).toMatchObject({
     kind: "after-acceptance",
     tranId: original.provider_transaction_id,
   });
-  const evidence = await inspect(
-    files.mockFourcs,
-    original.provider_account_ref,
-    original.provider_transaction_id,
-  );
+  const evidence = await inspect({
+    path: files.mockFourcs,
+    account: original.provider_account_ref,
+    tranId: original.provider_transaction_id,
+  });
   expect(evidence).toMatchObject({
     kind: "recorded",
     evidence: { finalOutcome: "Approved", effectCount: 1 },
@@ -75,10 +90,10 @@ test("absent ledger evidence cannot resolve failure; delayed acceptance can late
   const resolved = await command({
     path: files.paybridge,
     directory: files.directory,
-    input: resolutionInput(reconciliationId, evidence),
+    input: resolutionInput({ reconciliationId, evidence }),
   });
   expect(resolved.code).toBe(0);
-  expect(await lookup(app.url, id)).toMatchObject({
+  expect(await lookup({ url: app.url, id })).toMatchObject({
     status: "SUCCEEDED",
     revision: 4,
   });
@@ -91,8 +106,13 @@ test("absent ledger evidence cannot resolve failure; delayed acceptance can late
     "PAYMENT_SUCCEEDED",
   ]);
   expect(
-    (await confirm(app.url, id, { key: "resolved-success-retry", revision: 4 }))
-      .status,
+    (
+      await confirm({
+        url: app.url,
+        id,
+        options: { key: "resolved-success-retry", revision: 4 },
+      })
+    ).status,
   ).toBe(409);
 }, 20000);
 
@@ -105,7 +125,7 @@ test.each([false, true])(
     const release = Promise.withResolvers<void>();
     await using proxy = await providerProxy({
       upstream: app.mockUrl,
-      reply: async (xml, response) => {
+      reply: async ({ xml, response }) => {
         accepted.resolve(xml);
         await release.promise;
         response.end(
@@ -127,10 +147,16 @@ test.each([false, true])(
       origin: app.mockUrl,
     });
     const { id } = type({ id: "string" }).assert(
-      await (await create(app.url)).json(),
+      await (await create({ url: app.url })).json(),
     );
     expect(
-      (await confirm(app.url, id, { fixture: "pm_mock_declined" })).status,
+      (
+        await confirm({
+          url: app.url,
+          id,
+          options: { fixture: "pm_mock_declined" },
+        })
+      ).status,
     ).toBe(202);
     const original = identity(files.paybridge);
     await a.start();
@@ -148,46 +174,54 @@ test.each([false, true])(
     await b.start();
     await claimed(b);
     await expect
-      .poll(() => lookup(app.url, id))
+      .poll(() => lookup({ url: app.url, id }))
       .toMatchObject({ status: "UNKNOWN", revision: 3 });
     const { id: reconciliationId } = type({ id: "string" }).assert(
-      rows(files.paybridge, "SELECT id FROM reconciliations")[0],
+      rows({ path: files.paybridge, sql: "SELECT id FROM reconciliations" })[0],
     );
-    const evidence = await inspect(
-      files.mockFourcs,
-      original.provider_account_ref,
-      original.provider_transaction_id,
-    );
+    const evidence = await inspect({
+      path: files.mockFourcs,
+      account: original.provider_account_ref,
+      tranId: original.provider_transaction_id,
+    });
     expect(
       (
         await command({
           path: files.paybridge,
           directory: files.directory,
-          input: resolutionInput(reconciliationId, evidence, "FAILED"),
+          input: resolutionInput({
+            reconciliationId,
+            evidence,
+            resolution: "FAILED",
+          }),
         })
       ).code,
     ).toBe(0);
-    expect(await lookup(app.url, id)).toMatchObject({
+    expect(await lookup({ url: app.url, id })).toMatchObject({
       status: "FAILED",
       revision: 4,
     });
     expect(
       (
-        await confirm(app.url, id, {
-          key: "deliberate-new-attempt",
-          revision: 4,
+        await confirm({
+          url: app.url,
+          id,
+          options: {
+            key: "deliberate-new-attempt",
+            revision: 4,
+          },
         })
       ).status,
     ).toBe(202);
     await expect
-      .poll(() => lookup(app.url, id))
+      .poll(() => lookup({ url: app.url, id }))
       .toMatchObject({
         status: "SUCCEEDED",
         revision: 6,
         latestAttempt: { attemptNumber: 2 },
       });
     const before = records(files.paybridge);
-    const snapshot = await lookup(app.url, id);
+    const snapshot = await lookup({ url: app.url, id });
     release.resolve();
     expect(await a.message()).toEqual({
       code: contradictory
@@ -222,7 +256,7 @@ test.each([false, true])(
         ).host_reference,
       },
     });
-    expect(await lookup(app.url, id)).toEqual(snapshot);
+    expect(await lookup({ url: app.url, id })).toEqual(snapshot);
     expect(after.cases).toMatchObject([
       { status: "RESOLVED", resolution: "FAILED" },
     ]);

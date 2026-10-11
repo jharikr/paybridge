@@ -14,7 +14,7 @@ There are 20 explicit operations across the three applications, including their 
 
 ## Paybridge
 
-All business responses use `no-store` and `nosniff`. JSON uses `application/json; charset=utf-8`. Creation and confirmation acknowledgments include `Location`. Checkout redirects have status 303, an empty `text/plain; charset=utf-8` body and the registered return destination. A cached acknowledgment retains its original status, bytes and headers, while lookup reports current payment state.
+All business responses use `no-store` and `nosniff`. Unmatched JSON routes return `404 route_not_found` with the common error envelope and a request ID; their response never echoes the request URL or capability query. JSON uses `application/json; charset=utf-8`. Creation and confirmation acknowledgments include `Location`. Checkout redirects have status 303, an empty `text/plain; charset=utf-8` body and the registered return destination. A cached acknowledgment retains its original status, bytes and headers, while lookup reports current payment state.
 
 | Method and path                                | Compared HTTP statuses                 | Evidence                                                                                                 |
 | ---------------------------------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------- |

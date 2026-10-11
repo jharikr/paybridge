@@ -15,15 +15,19 @@ test("authenticated receiving context and conflicting business facts stay pendin
   });
   let worker: Awaited<ReturnType<typeof startInbox>> | undefined;
   try {
-    const a = await boundOrder(merchant.url);
-    const b = await boundOrder(merchant.url, "b");
+    const a = await boundOrder({ url: merchant.url });
+    const b = await boundOrder({ url: merchant.url, merchant: "b" });
     for (const order of [a, b])
       expect(
         (
-          await post(merchant.url, `${order.path}/confirm`, {
-            commandNumber: 1,
-            expectedRevision: 1,
-            mockPaymentMethodRef: "pm_mock_approved",
+          await post({
+            url: merchant.url,
+            path: `${order.path}/confirm`,
+            body: {
+              commandNumber: 1,
+              expectedRevision: 1,
+              mockPaymentMethodRef: "pm_mock_approved",
+            },
           })
         ).status,
       ).toBe(202);
@@ -35,7 +39,13 @@ test("authenticated receiving context and conflicting business facts stay pendin
       await expect
         .poll(
           async () =>
-            (await lookup(services.url, order.payment.id, owner)).status,
+            (
+              await lookup({
+                url: services.url,
+                id: order.payment.id,
+                merchant: owner,
+              })
+            ).status,
         )
         .toBe("SUCCEEDED");
     const notifications = events(files.paybridge);
@@ -46,7 +56,15 @@ test("authenticated receiving context and conflicting business facts stay pendin
       (event) => event.merchant_id === "merchant-b",
     );
     if (!eventA || !eventB) throw new Error("Expected both financial events");
-    expect((await deliver(merchant.url, eventA.payload, "b")).status).toBe(204);
+    expect(
+      (
+        await deliver({
+          url: merchant.url,
+          body: eventA.payload,
+          merchant: "b",
+        })
+      ).status,
+    ).toBe(204);
     const parsed = webhookEvent.assert(JSON.parse(eventA.payload));
     for (const change of [{ amount: 7501 }, { merchantReference: "OTHER" }]) {
       const payload = JSON.stringify({
@@ -54,16 +72,26 @@ test("authenticated receiving context and conflicting business facts stay pendin
         id: `evt_${randomBytes(16).toString("hex")}`,
         data: { ...parsed.data, ...change },
       });
-      expect((await deliver(merchant.url, payload)).status).toBe(204);
+      expect((await deliver({ url: merchant.url, body: payload })).status).toBe(
+        204,
+      );
     }
-    expect((await deliver(merchant.url, eventB.payload, "b")).status).toBe(204);
+    expect(
+      (
+        await deliver({
+          url: merchant.url,
+          body: eventB.payload,
+          merchant: "b",
+        })
+      ).status,
+    ).toBe(204);
     worker = await startInbox(files.merchant);
     await expect
       .poll(() =>
-        rows(
-          files.merchant,
-          "SELECT status,last_error FROM webhook_inbox ORDER BY last_error",
-        ),
+        rows({
+          path: files.merchant,
+          sql: "SELECT status,last_error FROM webhook_inbox ORDER BY last_error",
+        }),
       )
       .toEqual([
         { status: "PROCESSED", last_error: null },
@@ -72,19 +100,19 @@ test("authenticated receiving context and conflicting business facts stay pendin
         { status: "PENDING", last_error: "inbox_binding_unmatched" },
       ]);
     expect(
-      rows(
-        files.merchant,
-        "SELECT merchant_id,state FROM orders ORDER BY merchant_id",
-      ),
+      rows({
+        path: files.merchant,
+        sql: "SELECT merchant_id,state FROM orders ORDER BY merchant_id",
+      }),
     ).toEqual([
       { merchant_id: "merchant-a", state: "UNPAID" },
       { merchant_id: "merchant-b", state: "PAID" },
     ]);
     expect(
-      rows(
-        files.merchant,
-        "SELECT merchant_id,status,last_applied_revision FROM merchant_payments ORDER BY merchant_id",
-      ),
+      rows({
+        path: files.merchant,
+        sql: "SELECT merchant_id,status,last_applied_revision FROM merchant_payments ORDER BY merchant_id",
+      }),
     ).toEqual([
       { merchant_id: "merchant-a", status: null, last_applied_revision: 0 },
       {
@@ -94,10 +122,10 @@ test("authenticated receiving context and conflicting business facts stay pendin
       },
     ]);
     expect(
-      rows(
-        files.merchant,
-        `SELECT receiving_merchant_id,payload FROM webhook_inbox WHERE event_id='${eventA.payment_event_id}'`,
-      ),
+      rows({
+        path: files.merchant,
+        sql: `SELECT receiving_merchant_id,payload FROM webhook_inbox WHERE event_id='${eventA.payment_event_id}'`,
+      }),
     ).toEqual([
       { receiving_merchant_id: "merchant-b", payload: eventA.payload },
     ]);

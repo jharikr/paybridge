@@ -6,7 +6,13 @@ import { isolatedDatabases } from "../support/databases.ts";
 import { rows } from "../provider/support.ts";
 import { payload, receiver, signed } from "./support.ts";
 
-async function verifyFailure(url: string, response: Response) {
+async function verifyFailure({
+  url,
+  response,
+}: {
+  url: string;
+  response: Response;
+}) {
   const document = type({
     paths: {
       "/api/webhooks/paybridge/{merchantFixture}": {
@@ -45,11 +51,11 @@ test.each([
   "a real receiver kill %s retains the correct receipt and restart accepts exact redelivery",
   async (fault) => {
     await using files = await isolatedDatabases();
-    const first = await receiver(files.merchant, fault);
+    const first = await receiver({ path: files.merchant, fault });
     try {
       const pending = fetch(`${first.url}/api/webhooks/paybridge/merchant-a`, {
         method: "POST",
-        headers: signed(payload),
+        headers: signed({ body: payload }),
         body: payload,
       }).catch(() => null);
       if (fault === "after-acknowledgment")
@@ -59,26 +65,29 @@ test.each([
           type({ kind: "string" }).assert(await first.message()).kind,
         ).toBe(fault);
       expect(
-        rows(files.merchant, "SELECT event_id FROM webhook_inbox"),
+        rows({
+          path: files.merchant,
+          sql: "SELECT event_id FROM webhook_inbox",
+        }),
       ).toHaveLength(fault === "before-receipt-commit" ? 0 : 1);
       await first.stop();
       if (fault !== "after-acknowledgment") expect(await pending).toBeNull();
-      const second = await receiver(files.merchant);
+      const second = await receiver({ path: files.merchant });
       try {
         expect(
           (
             await fetch(`${second.url}/api/webhooks/paybridge/merchant-a`, {
               method: "POST",
-              headers: signed(payload),
+              headers: signed({ body: payload }),
               body: payload,
             })
           ).status,
         ).toBe(204);
         expect(
-          rows(
-            files.merchant,
-            "SELECT payload,status,attempt_count FROM webhook_inbox",
-          ),
+          rows({
+            path: files.merchant,
+            sql: "SELECT payload,status,attempt_count FROM webhook_inbox",
+          }),
         ).toEqual([{ payload, status: "PENDING", attempt_count: 0 }]);
       } finally {
         await second.stop();
@@ -91,31 +100,31 @@ test.each([
 
 test("receipt rollback sends no successful acknowledgment and leaves redelivery possible", async () => {
   await using files = await isolatedDatabases();
-  const first = await receiver(files.merchant, "rollback");
+  const first = await receiver({ path: files.merchant, fault: "rollback" });
   try {
     const response = await fetch(
       `${first.url}/api/webhooks/paybridge/merchant-a`,
       {
         method: "POST",
-        headers: signed(payload),
+        headers: signed({ body: payload }),
         body: payload,
       },
     );
     expect(response.status).toBe(500);
-    await verifyFailure(first.url, response);
-    expect(rows(files.merchant, "SELECT event_id FROM webhook_inbox")).toEqual(
-      [],
-    );
+    await verifyFailure({ url: first.url, response });
+    expect(
+      rows({ path: files.merchant, sql: "SELECT event_id FROM webhook_inbox" }),
+    ).toEqual([]);
   } finally {
     await first.stop();
   }
-  const second = await receiver(files.merchant);
+  const second = await receiver({ path: files.merchant });
   try {
     expect(
       (
         await fetch(`${second.url}/api/webhooks/paybridge/merchant-a`, {
           method: "POST",
-          headers: signed(payload),
+          headers: signed({ body: payload }),
           body: payload,
         })
       ).status,
@@ -127,12 +136,15 @@ test("receipt rollback sends no successful acknowledgment and leaves redelivery 
 
 test("receipt write contention returns a bounded retry response and no false acknowledgment", async () => {
   await using files = await isolatedDatabases();
-  const first = await receiver(files.merchant, "before-receipt-commit");
-  const second = await receiver(files.merchant);
+  const first = await receiver({
+    path: files.merchant,
+    fault: "before-receipt-commit",
+  });
+  const second = await receiver({ path: files.merchant });
   try {
     const pending = fetch(`${first.url}/api/webhooks/paybridge/merchant-a`, {
       method: "POST",
-      headers: signed(payload),
+      headers: signed({ body: payload }),
       body: payload,
     }).catch(() => null);
     expect(type({ kind: "string" }).assert(await first.message()).kind).toBe(
@@ -141,27 +153,30 @@ test("receipt write contention returns a bounded retry response and no false ack
     const start = Date.now();
     const response = await fetch(
       `${second.url}/api/webhooks/paybridge/merchant-a`,
-      { method: "POST", headers: signed(payload), body: payload },
+      { method: "POST", headers: signed({ body: payload }), body: payload },
     );
     expect(response.status).toBe(503);
     expect(Date.now() - start).toBeLessThan(6500);
-    await verifyFailure(second.url, response);
-    expect(rows(files.merchant, "SELECT event_id FROM webhook_inbox")).toEqual(
-      [],
-    );
+    await verifyFailure({ url: second.url, response });
+    expect(
+      rows({ path: files.merchant, sql: "SELECT event_id FROM webhook_inbox" }),
+    ).toEqual([]);
     await first.stop();
     expect(await pending).toBeNull();
     expect(
       (
         await fetch(`${second.url}/api/webhooks/paybridge/merchant-a`, {
           method: "POST",
-          headers: signed(payload),
+          headers: signed({ body: payload }),
           body: payload,
         })
       ).status,
     ).toBe(204);
     expect(
-      rows(files.merchant, "SELECT payload,status FROM webhook_inbox"),
+      rows({
+        path: files.merchant,
+        sql: "SELECT payload,status FROM webhook_inbox",
+      }),
     ).toEqual([{ payload, status: "PENDING" }]);
   } finally {
     await first.stop();
@@ -171,14 +186,14 @@ test("receipt write contention returns a bounded retry response and no false ack
 
 test("competing receivers retain one receipt across identical and conflicting deliveries", async () => {
   await using files = await isolatedDatabases();
-  const first = await receiver(files.merchant);
-  const second = await receiver(files.merchant);
+  const first = await receiver({ path: files.merchant });
+  const second = await receiver({ path: files.merchant });
   try {
     const responses = await Promise.all(
       Array.from({ length: 12 }, (_, index) =>
         fetch(
           `${index % 2 ? first.url : second.url}/api/webhooks/paybridge/merchant-a`,
-          { method: "POST", headers: signed(payload), body: payload },
+          { method: "POST", headers: signed({ body: payload }), body: payload },
         ),
       ),
     );
@@ -189,21 +204,24 @@ test("competing receivers retain one receipt across identical and conflicting de
     const conflicts = await Promise.all([
       fetch(`${first.url}/api/webhooks/paybridge/merchant-a`, {
         method: "POST",
-        headers: signed(different),
+        headers: signed({ body: different }),
         body: different,
       }),
       fetch(`${second.url}/api/webhooks/paybridge/merchant-b`, {
         method: "POST",
-        headers: signed(payload, { secret: "mock-webhook-secret-b" }),
+        headers: signed({
+          body: payload,
+          options: { secret: "mock-webhook-secret-b" },
+        }),
         body: payload,
       }),
     ]);
     expect(conflicts.map((response) => response.status)).toEqual([409, 409]);
     expect(
-      rows(
-        files.merchant,
-        "SELECT payload,receiving_merchant_id FROM webhook_inbox",
-      ),
+      rows({
+        path: files.merchant,
+        sql: "SELECT payload,receiving_merchant_id FROM webhook_inbox",
+      }),
     ).toEqual([{ payload, receiving_merchant_id: "merchant-a" }]);
   } finally {
     await first.stop();

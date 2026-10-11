@@ -15,14 +15,16 @@ test("unmatched receipt retries double to the cap without changing authenticated
   });
   let worker: Awaited<ReturnType<typeof controlledInbox>> | undefined;
   try {
-    expect((await deliver(merchant.url, payload)).status).toBe(204);
-    const original = rows(
-      files.merchant,
-      "SELECT event_id,receiving_merchant_id,payload,payload_hash,received_at FROM webhook_inbox",
+    expect((await deliver({ url: merchant.url, body: payload })).status).toBe(
+      204,
     );
-    worker = await controlledInbox(files.merchant);
+    const original = rows({
+      path: files.merchant,
+      sql: "SELECT event_id,receiving_merchant_id,payload,payload_hash,received_at FROM webhook_inbox",
+    });
+    worker = await controlledInbox({ path: files.merchant });
     let clock = Date.now();
-    await advance(worker, clock);
+    await advance({ worker, epochMs: clock });
     await worker.start();
     for (const [index, backoff] of [50, 100, 200, 200].entries()) {
       expect(await worker.message()).toMatchObject({
@@ -38,10 +40,10 @@ test("unmatched receipt retries double to the cap without changing authenticated
         locked_by: "null",
         lease_expires_at: "null",
       }).assert(
-        rows(
-          files.merchant,
-          "SELECT status,attempt_count,next_attempt_at,last_error,claim_token,locked_by,lease_expires_at FROM webhook_inbox",
-        )[0],
+        rows({
+          path: files.merchant,
+          sql: "SELECT status,attempt_count,next_attempt_at,last_error,claim_token,locked_by,lease_expires_at FROM webhook_inbox",
+        })[0],
       );
       expect(record).toMatchObject({
         status: "PENDING",
@@ -50,15 +52,17 @@ test("unmatched receipt retries double to the cap without changing authenticated
       });
       expect(Date.parse(record.next_attempt_at) - clock).toBe(backoff);
       expect(
-        rows(
-          files.merchant,
-          "SELECT event_id,receiving_merchant_id,payload,payload_hash,received_at FROM webhook_inbox",
-        ),
+        rows({
+          path: files.merchant,
+          sql: "SELECT event_id,receiving_merchant_id,payload,payload_hash,received_at FROM webhook_inbox",
+        }),
       ).toEqual(original);
-      expect(rows(files.merchant, "SELECT id FROM orders")).toEqual([]);
+      expect(
+        rows({ path: files.merchant, sql: "SELECT id FROM orders" }),
+      ).toEqual([]);
       if (index < 3) {
         clock = Date.parse(record.next_attempt_at);
-        await advance(worker, clock);
+        await advance({ worker, epochMs: clock });
       }
     }
   } finally {

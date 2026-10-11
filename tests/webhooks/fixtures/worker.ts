@@ -1,3 +1,4 @@
+import { sensitiveFailure } from "../../support/failure.ts";
 import { randomUUID } from "node:crypto";
 import { type } from "arktype";
 import { openPaybridgeDatabase } from "../../../apps/paybridge/database.ts";
@@ -7,7 +8,7 @@ import {
 } from "../../../apps/paybridge/webhook-worker.ts";
 const path = type("string").assert(process.argv[2]);
 const held = type(
-  "'none'|'after-webhook-claim'|'after-webhook-response'|'before-webhook-completion-commit'",
+  "'rollback'|'none'|'after-webhook-claim'|'after-webhook-response'|'before-webhook-completion-commit'",
 ).assert(process.argv[3] ?? "none");
 const config = webhookWorkerConfig(process.argv.slice(4));
 const input = type({ kind: "'start'", "+": "reject" })
@@ -55,6 +56,11 @@ try {
     signal: new AbortController().signal,
     now: () => new Date(clock ?? Date.now()),
     checkpoint: async (event) => {
+      if (
+        held === "rollback" &&
+        event.kind === "before-webhook-completion-commit"
+      )
+        throw sensitiveFailure();
       if (event.kind !== held || heldOnce) return;
       heldOnce = true;
       process.send?.(event);

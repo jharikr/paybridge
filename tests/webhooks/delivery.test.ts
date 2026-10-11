@@ -33,7 +33,7 @@ test("the real worker delivers each merchant's committed cancellation bytes with
           merchantReference: "Webhook café 😀",
           amount: 7500,
           currency: "XCD",
-          returnUrl: `${merchant.url}/merchant-${letter}/payment-return`,
+          returnUrl: `${letter === "b" ? merchant.url.replace("127.0.0.1", "localhost") : merchant.url}/merchant-${letter}/payment-return`,
         }),
       });
       expect(response.status).toBe(201);
@@ -47,14 +47,14 @@ test("the real worker delivers each merchant's committed cancellation bytes with
         ).status,
       ).toBe(200);
     }
-    const before = rows(
-      files.paybridge,
-      "SELECT id,status,revision FROM payment_intents ORDER BY id",
-    );
-    const events = rows(
-      files.paybridge,
-      "SELECT id,payment_intent_id,intent_revision,metadata FROM payment_events ORDER BY id",
-    );
+    const before = rows({
+      path: files.paybridge,
+      sql: "SELECT id,status,revision FROM payment_intents ORDER BY id",
+    });
+    const events = rows({
+      path: files.paybridge,
+      sql: "SELECT id,payment_intent_id,intent_revision,metadata FROM payment_events ORDER BY id",
+    });
     worker = startNodeProcess({
       entrypoint: fileURLToPath(
         new URL("../../apps/paybridge/worker.ts", import.meta.url),
@@ -73,17 +73,17 @@ test("the real worker delivers each merchant's committed cancellation bytes with
     await expect
       .poll(
         () =>
-          rows(
-            files.paybridge,
-            "SELECT status FROM webhook_outbox ORDER BY id",
-          ),
+          rows({
+            path: files.paybridge,
+            sql: "SELECT status FROM webhook_outbox ORDER BY id",
+          }),
         { timeout: 3000 },
       )
       .toEqual([{ status: "DELIVERED" }, { status: "DELIVERED" }]);
-    const outbox = rows(
-      files.paybridge,
-      "SELECT payment_event_id,merchant_id,payload FROM webhook_outbox ORDER BY merchant_id",
-    );
+    const outbox = rows({
+      path: files.paybridge,
+      sql: "SELECT payment_event_id,merchant_id,payload FROM webhook_outbox ORDER BY merchant_id",
+    });
     for (const record of outbox) {
       const event = type({
         payment_event_id: "string",
@@ -91,10 +91,10 @@ test("the real worker delivers each merchant's committed cancellation bytes with
         payload: "string",
       }).assert(record);
       expect(
-        rows(
-          files.merchant,
-          `SELECT event_id,receiving_merchant_id,payload,payload_hash,status FROM webhook_inbox WHERE receiving_merchant_id='${event.merchant_id}'`,
-        ),
+        rows({
+          path: files.merchant,
+          sql: `SELECT event_id,receiving_merchant_id,payload,payload_hash,status FROM webhook_inbox WHERE receiving_merchant_id='${event.merchant_id}'`,
+        }),
       ).toEqual([
         {
           event_id: event.payment_event_id,
@@ -108,21 +108,23 @@ test("the real worker delivers each merchant's committed cancellation bytes with
       ]);
     }
     expect(
-      rows(
-        files.paybridge,
-        "SELECT id,status,revision FROM payment_intents ORDER BY id",
-      ),
+      rows({
+        path: files.paybridge,
+        sql: "SELECT id,status,revision FROM payment_intents ORDER BY id",
+      }),
     ).toEqual(before);
     expect(
-      rows(
-        files.paybridge,
-        "SELECT id,payment_intent_id,intent_revision,metadata FROM payment_events ORDER BY id",
-      ),
+      rows({
+        path: files.paybridge,
+        sql: "SELECT id,payment_intent_id,intent_revision,metadata FROM payment_events ORDER BY id",
+      }),
     ).toEqual(events);
-    expect(rows(files.paybridge, "SELECT id FROM payment_attempts")).toEqual(
-      [],
-    );
-    expect(rows(files.merchant, "SELECT id FROM orders")).toEqual([]);
+    expect(
+      rows({ path: files.paybridge, sql: "SELECT id FROM payment_attempts" }),
+    ).toEqual([]);
+    expect(
+      rows({ path: files.merchant, sql: "SELECT id FROM orders" }),
+    ).toEqual([]);
   } finally {
     await worker?.stop();
     await api.stop();

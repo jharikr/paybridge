@@ -1,3 +1,4 @@
+import { safeFailure } from "./diagnostics.ts";
 import { randomUUID } from "node:crypto";
 import type { ServerResponse } from "node:http";
 import { type, type Type } from "arktype";
@@ -72,10 +73,13 @@ export async function createHttpApp({
     disableRequestLogging: true,
   });
 
-  function requestSchema(
-    validator: Type,
-    options?: Parameters<Type["toJsonSchema"]>[0],
-  ) {
+  function requestSchema({
+    validator,
+    options,
+  }: {
+    validator: Type;
+    options?: Parameters<Type["toJsonSchema"]>[0];
+  }) {
     const id = `urn:paybridge:schema:${validators.size}`;
     const source = validator.toJsonSchema(options);
     // Swagger treats an object without properties as legacy parameter shorthand.
@@ -103,6 +107,19 @@ export async function createHttpApp({
       return { value: result };
     };
   });
+  app.setNotFoundHandler((request, reply) =>
+    reply
+      .code(404)
+      .header("cache-control", "no-store")
+      .header("x-content-type-options", "nosniff")
+      .send({
+        error: {
+          code: "route_not_found",
+          message: "The route was not found.",
+          requestId: request.id,
+        },
+      }),
+  );
   app.setErrorHandler((error, request, reply) => {
     if (
       error instanceof Error &&
@@ -115,7 +132,14 @@ export async function createHttpApp({
         .code(error.statusCode)
         .send(invalidRequest({ requestId: request.id }));
     }
-    request.log.error({ requestId: request.id }, "Request failed");
+    request.log.error(
+      {
+        requestId: request.id,
+        route: request.routeOptions.url,
+        ...safeFailure({ operation: "http_request", cause: error }),
+      },
+      "Request failed",
+    );
     return reply.code(500).send({
       error: {
         code: "internal_error",

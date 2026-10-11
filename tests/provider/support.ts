@@ -21,7 +21,7 @@ export function headers(merchant = "a") {
     "content-type": "application/json",
   };
 }
-export function rows(path: string, sql: string) {
+export function rows({ path, sql }: { path: string; sql: string }) {
   const db = new DatabaseSync(path, { readOnly: true });
   try {
     db.exec("PRAGMA busy_timeout = 5000");
@@ -30,15 +30,18 @@ export function rows(path: string, sql: string) {
     db.close();
   }
 }
-export async function expireClaim(
-  worker: ReturnType<typeof startNodeProcess>,
-  path: string,
-) {
+export async function expireClaim({
+  worker,
+  path,
+}: {
+  worker: ReturnType<typeof startNodeProcess>;
+  path: string;
+}) {
   const claim = type({ lease_expires_at: "string" }).assert(
-    rows(
+    rows({
       path,
-      "SELECT lease_expires_at FROM provider_outbox WHERE status = 'PROCESSING'",
-    )[0],
+      sql: "SELECT lease_expires_at FROM provider_outbox WHERE status = 'PROCESSING'",
+    })[0],
   );
   worker.child.send({
     kind: "advance",
@@ -46,10 +49,13 @@ export async function expireClaim(
   });
   expect(await worker.message()).toEqual({ kind: "advanced" });
 }
-export function create(
-  url: string,
-  { key = "create-1", merchant = "a", amount = 7500 } = {},
-) {
+export function create({
+  url,
+  options: { key = "create-1", merchant = "a", amount = 7500 } = {},
+}: {
+  url: string;
+  options?: { key?: string; merchant?: string; amount?: number };
+}) {
   return fetch(`${url}/v1/payment-intents`, {
     method: "POST",
     headers: { ...headers(merchant), "idempotency-key": key },
@@ -58,20 +64,29 @@ export function create(
       description: "Inert </request><MerchantKey>other</MerchantKey>",
       amount,
       currency: "XCD",
-      returnUrl: "http://127.0.0.1:3101/payment-return",
+      returnUrl: `http://${merchant === "b" ? "localhost" : "127.0.0.1"}:3101/payment-return`,
     }),
   });
 }
-export function confirm(
-  url: string,
-  id: string,
-  {
+export function confirm({
+  url,
+  id,
+  options: {
     key = "confirm-1",
     merchant = "a",
     fixture = "pm_mock_approved",
     revision = 1,
   } = {},
-) {
+}: {
+  url: string;
+  id: string;
+  options?: {
+    key?: string;
+    merchant?: string;
+    fixture?: string;
+    revision?: number;
+  };
+}) {
   return fetch(`${url}/v1/payment-intents/${id}/confirm`, {
     method: "POST",
     headers: { ...headers(merchant), "idempotency-key": key },
@@ -81,7 +96,15 @@ export function confirm(
     }),
   });
 }
-export async function lookup(url: string, id: string, merchant = "a") {
+export async function lookup({
+  url,
+  id,
+  merchant = "a",
+}: {
+  url: string;
+  id: string;
+  merchant?: string;
+}) {
   const response = await fetch(`${url}/v1/payment-intents/${id}`, {
     headers: headers(merchant),
   });

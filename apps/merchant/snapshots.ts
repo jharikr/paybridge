@@ -108,9 +108,12 @@ async function commitSnapshot({
       snapshot,
     });
     if (applied.kind === "unmatched")
-      throw new MerchantError(404, "payment_not_found");
+      throw new MerchantError({ status: 404, code: "payment_not_found" });
     if (applied.kind === "conflict")
-      throw new MerchantError(502, "payment_binding_conflict");
+      throw new MerchantError({
+        status: 502,
+        code: "payment_binding_conflict",
+      });
     await beforeCommit?.();
     return applied.result;
   });
@@ -144,7 +147,10 @@ export async function lookupAndApplyPayment({
     revision: snapshot.revision,
   });
   if (common instanceof type.errors)
-    throw new MerchantError(502, "invalid_paybridge_response");
+    throw new MerchantError({
+      status: 502,
+      code: "invalid_paybridge_response",
+    });
   const result = await commitSnapshot({
     db,
     merchant,
@@ -171,7 +177,8 @@ export async function returnPayment({
     paymentIntentId: id,
     merchantId: merchant.id,
   }).first();
-  if (!payment) throw new MerchantError(404, "payment_not_found");
+  if (!payment)
+    throw new MerchantError({ status: 404, code: "payment_not_found" });
   if (
     (payment.status === "SUCCEEDED" || payment.status === "CANCELLED") &&
     payment.snapshot !== null

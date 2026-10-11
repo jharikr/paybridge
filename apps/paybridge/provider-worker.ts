@@ -1,9 +1,11 @@
+import { safeFailure, type SafeFailure } from "../../contracts/diagnostics.ts";
 import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { MIMEType } from "node:util";
 import { type } from "arktype";
 import {
   buildFourcsRequest,
+  fourcsRequestInput,
   mockPaymentMethodRef,
   soapAction,
   soapBodyLimit,
@@ -142,7 +144,7 @@ async function submit({
   const account = type("'mock-account-a' | 'mock-account-b'").assert(
     claim.attempt.providerAccountRef,
   );
-  const input = {
+  const input = fourcsRequestInput.assert({
     merchantKey: providerAccounts[account].merchantKey,
     tranId: claim.attempt.providerTransactionId,
     invoice: claim.payment.providerInvoice,
@@ -151,7 +153,7 @@ async function submit({
     mockPaymentMethodRef: mockPaymentMethodRef.assert(
       claim.attempt.mockPaymentMethodRef,
     ),
-  };
+  });
   const deadline = AbortSignal.timeout(config.timeoutMs);
   try {
     const response = await fetch(config.endpoint, {
@@ -371,11 +373,13 @@ export async function runProviderWorker({
   beforeResultCommit?: () => Promise<void>;
   diagnostic: (value: {
     code: string;
+    failure?: SafeFailure;
     workerId: string;
     paymentAttemptId?: string;
   }) => void;
 }) {
   while (!signal.aborted) {
+    let operation: SafeFailure["operation"] = "provider_claim";
     let paymentAttemptId: string | undefined;
     try {
       const claim = await claimWork({
@@ -394,7 +398,9 @@ export async function runProviderWorker({
             paymentAttemptId,
           });
         } else {
+          operation = "provider_submit";
           const submission = await submit({ claim, config });
+          operation = "provider_completion";
           const code = await saveResult({
             db,
             claim,
@@ -416,6 +422,7 @@ export async function runProviderWorker({
           : "provider_worker_iteration_failed";
       diagnostic({
         code,
+        failure: safeFailure({ operation, cause }),
         workerId,
         ...(paymentAttemptId ? { paymentAttemptId } : {}),
       });

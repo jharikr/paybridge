@@ -1,3 +1,4 @@
+import { safeFailure } from "../../contracts/diagnostics.ts";
 import { fileURLToPath } from "node:url";
 import { createSqliteControlClient } from "@prisma/orm-sqlite/control";
 import sqlite from "@prisma/orm-sqlite/runtime";
@@ -12,7 +13,11 @@ export async function openMerchantDatabase({ path }: { path: string }) {
       contract: contractJson,
       migrationsDir: fileURLToPath(new URL("./migrations", import.meta.url)),
     });
-    if (!result.ok) throw new Error("Merchant migration failed");
+    if (!result.ok) throw result.failure;
+  } catch (cause) {
+    throw new Error("Database migration failed", {
+      cause: safeFailure({ operation: "merchant_migration", cause }),
+    });
   } finally {
     await control.close();
   }

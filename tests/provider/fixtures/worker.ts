@@ -1,3 +1,4 @@
+import { sensitiveFailure } from "../../support/failure.ts";
 import { openPaybridgeDatabase } from "../../../apps/paybridge/database.ts";
 import {
   providerWorkerConfig,
@@ -18,13 +19,13 @@ try {
     signal: controller.signal,
     beforeResultCommit: async () => {
       injected = true;
-      throw new Error("Injected result rollback");
+      throw sensitiveFailure();
     },
-    diagnostic: () => {
+    diagnostic: (value) => {
       if (!injected)
         throw new Error("Result failed before the injected rollback");
       controller.abort();
-      process.send?.({ kind: "result-rolled-back" });
+      process.send?.({ kind: "result-rolled-back", failure: value.failure });
     },
   });
 } finally {

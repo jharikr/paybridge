@@ -1,6 +1,7 @@
 import { type } from "arktype";
 import { expect, test } from "vitest";
 import {
+  fourcsRequestInput,
   buildFourcsRequest,
   parseFourcsResponse,
   soapAction,
@@ -35,29 +36,37 @@ test.each([
     await using app = await journey(files);
     await using proxy = await providerProxy({
       upstream: app.mockUrl,
-      reply: (_xml, response) => {
+      reply: ({ response }) => {
         response.destroy();
       },
     });
-    const payment = await unknownPayment(app, files.paybridge, {
-      fixture,
-      origin: classification === "Incomplete" ? proxy.origin : app.mockUrl,
+    const payment = await unknownPayment({
+      app,
+      path: files.paybridge,
+      options: {
+        fixture,
+        origin: classification === "Incomplete" ? proxy.origin : app.mockUrl,
+      },
     });
     const exported = type({ kind: "'recorded'", evidence: "object" }).assert(
-      await inspect(
-        files.mockFourcs,
-        payment.identity.provider_account_ref,
-        payment.identity.provider_transaction_id,
-      ),
+      await inspect({
+        path: files.mockFourcs,
+        account: payment.identity.provider_account_ref,
+        tranId: payment.identity.provider_transaction_id,
+      }),
     );
-    const input = resolutionInput(payment.reconciliationId, exported, "FAILED");
+    const input = resolutionInput({
+      reconciliationId: payment.reconciliationId,
+      evidence: exported,
+      resolution: "FAILED",
+    });
     const resolved = await command({
       path: files.paybridge,
       directory: files.directory,
       input,
     });
     expect(resolved.code, JSON.stringify(resolved.body)).toBe(0);
-    expect(await lookup(app.url, payment.id)).toMatchObject({
+    expect(await lookup({ url: app.url, id: payment.id })).toMatchObject({
       status: "FAILED",
       revision: 4,
       latestAttempt: { status: "FAILED", failureCode: classification },
@@ -67,9 +76,13 @@ test.each([
       { final_outcome: classification, effect_count: 0 },
     ]);
     const oldCase = records(files.paybridge).cases;
-    const retry = await confirm(app.url, payment.id, {
-      key: "deliberate-retry",
-      revision: 4,
+    const retry = await confirm({
+      url: app.url,
+      id: payment.id,
+      options: {
+        key: "deliberate-retry",
+        revision: 4,
+      },
     });
     expect(retry.status).toBe(202);
     const accepted = type({
@@ -82,7 +95,7 @@ test.each([
     );
     await app.startWorker();
     await expect
-      .poll(() => lookup(app.url, payment.id))
+      .poll(() => lookup({ url: app.url, id: payment.id }))
       .toMatchObject({ status: "SUCCEEDED", revision: 6 });
     const beforeReplay = records(files.paybridge);
     const reordered = Object.fromEntries(
@@ -106,10 +119,10 @@ test.each([
       ).body,
     ).toEqual(resolved.body);
     expect(records(files.paybridge)).toEqual(beforeReplay);
-    const attempts = rows(
-      files.paybridge,
-      "SELECT id, provider_transaction_id, status, failure_code FROM payment_attempts ORDER BY attempt_number",
-    );
+    const attempts = rows({
+      path: files.paybridge,
+      sql: "SELECT id, provider_transaction_id, status, failure_code FROM payment_attempts ORDER BY attempt_number",
+    });
     expect(attempts).toMatchObject([
       {
         id: payment.identity.payment_attempt_id,
@@ -132,14 +145,16 @@ test.each([
       const duplicate = await fetch(`${url}${soapPath}`, {
         method: "POST",
         headers: { "content-type": "text/xml", soapaction: soapAction },
-        body: buildFourcsRequest({
-          merchantKey: "mock-provider-key-a",
-          tranId: payment.identity.provider_transaction_id,
-          invoice: payment.identity.provider_invoice,
-          amountMinor: 7500,
-          currency: "XCD",
-          mockPaymentMethodRef: "pm_mock_approved",
-        }),
+        body: buildFourcsRequest(
+          fourcsRequestInput.assert({
+            merchantKey: "mock-provider-key-a",
+            tranId: payment.identity.provider_transaction_id,
+            invoice: payment.identity.provider_invoice,
+            amountMinor: 7500,
+            currency: "XCD",
+            mockPaymentMethodRef: "pm_mock_approved",
+          }),
+        ),
       });
       expect(parseFourcsResponse(await duplicate.text())).toMatchObject({
         service: "DuplicateTransaction",
@@ -155,9 +170,13 @@ test.each([
     expect(records(files.paybridge)).toEqual(beforeReplay);
     expect(
       (
-        await confirm(app.url, payment.id, {
-          key: "terminal-retry",
-          revision: 6,
+        await confirm({
+          url: app.url,
+          id: payment.id,
+          options: {
+            key: "terminal-retry",
+            revision: 6,
+          },
         })
       ).status,
     ).toBe(409);

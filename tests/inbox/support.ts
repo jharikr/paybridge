@@ -28,22 +28,30 @@ export async function startInbox(path: string) {
   }
 }
 
-export async function boundOrder(
-  url: string,
+export async function boundOrder({
+  url,
   merchant = "a",
   reference = "ORDER-1",
-) {
+}: {
+  url: string;
+  merchant?: string;
+  reference?: string;
+}) {
   const order = orderIdentity.assert(
     await (
-      await post(url, `/merchant-${merchant}/orders`, {
-        ...orderBody,
-        businessReference: reference,
+      await post({
+        url,
+        path: `/merchant-${merchant}/orders`,
+        body: {
+          ...orderBody,
+          businessReference: reference,
+        },
       })
     ).json(),
   );
   const path = `/merchant-${merchant}/orders/${order.id}`;
   const payment = paymentIdentity.assert(
-    await (await post(url, `${path}/payment`)).json(),
+    await (await post({ url, path: `${path}/payment` })).json(),
   );
   return { order, payment, path };
 }
@@ -57,42 +65,57 @@ export function events(path: string) {
   })
     .array()
     .assert(
-      rows(
+      rows({
         path,
-        "SELECT payment_event_id,payload,event_type,merchant_id FROM webhook_outbox ORDER BY rowid",
-      ),
+        sql: "SELECT payment_event_id,payload,event_type,merchant_id FROM webhook_outbox ORDER BY rowid",
+      }),
     );
 }
 
-export function deliver(url: string, body: string, merchant = "a") {
+export function deliver({
+  url,
+  body,
+  merchant = "a",
+}: {
+  url: string;
+  body: string;
+  merchant?: string;
+}) {
   const { id } = type({ id: "string" }).assert(JSON.parse(body));
   return fetch(`${url}/api/webhooks/paybridge/merchant-${merchant}`, {
     method: "POST",
     body,
-    headers: signed(body, {
-      id,
-      secret: `mock-webhook-secret-${merchant}`,
-      timestamp: String(Math.floor(Date.now() / 1000)),
+    headers: signed({
+      body,
+      options: {
+        id,
+        secret: `mock-webhook-secret-${merchant}`,
+        timestamp: String(Math.floor(Date.now() / 1000)),
+      },
     }),
   });
 }
 
 export function merchantRecords(path: string) {
   return {
-    orders: rows(path, "SELECT * FROM orders ORDER BY id"),
-    payments: rows(
+    orders: rows({ path, sql: "SELECT * FROM orders ORDER BY id" }),
+    payments: rows({
       path,
-      "SELECT * FROM merchant_payments ORDER BY payment_intent_id",
-    ),
-    inbox: rows(path, "SELECT * FROM webhook_inbox ORDER BY event_id"),
+      sql: "SELECT * FROM merchant_payments ORDER BY payment_intent_id",
+    }),
+    inbox: rows({ path, sql: "SELECT * FROM webhook_inbox ORDER BY event_id" }),
   };
 }
 
-export async function controlledInbox(
-  path: string,
+export async function controlledInbox({
+  path,
   held = "none",
-  { lease = 1000, base = 50, cap = 200 } = {},
-) {
+  options: { lease = 1000, base = 50, cap = 200 } = {},
+}: {
+  path: string;
+  held?: string;
+  options?: { lease?: number; base?: number; cap?: number };
+}) {
   const worker = startNodeProcess({
     entrypoint: fileURLToPath(new URL("./fixtures/worker.ts", import.meta.url)),
     args: [path, held, String(lease), "10", String(base), String(cap)],

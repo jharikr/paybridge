@@ -43,14 +43,16 @@ export const providerAccountFixtures = [
 ];
 
 const providerIdentifier = type(/^[A-Za-z0-9]{1,16}$/);
+export const providerTranId = providerIdentifier.brand("ProviderTranId");
+export const providerInvoice = providerIdentifier.brand("ProviderInvoice");
 const amountMinor = type("number.integer >= 1").atMost(maxAmountMinor);
 const requestFields = type({
   MerchantKey: "8 <= string <= 64",
   TranType: "'AuthAndPost'",
   Amount: /^(0|[1-9][0-9]{0,7})\.[0-9]{2}$/,
   Currency: "'XCD'",
-  Invoice: providerIdentifier.brand("ProviderInvoice"),
-  TranId: providerIdentifier.brand("ProviderTranId"),
+  Invoice: providerInvoice,
+  TranId: providerTranId,
   CardNumber: /^[0-9]{16}$/,
   ExpiryMMYY: "'1230'",
   VerificationValue: "'123'",
@@ -58,16 +60,16 @@ const requestFields = type({
   "Address?": "'Fixture Address' | ''",
   "+": "reject",
 });
-const requestInput = type({
+export const fourcsRequestInput = type({
   merchantKey: "8 <= string <= 64",
-  tranId: providerIdentifier,
-  invoice: providerIdentifier,
+  tranId: providerTranId,
+  invoice: providerInvoice,
   amountMinor,
   currency: "'XCD'",
   mockPaymentMethodRef,
   "+": "reject",
 });
-export type FourcsRequestInput = typeof requestInput.infer;
+export type FourcsRequestInput = typeof fourcsRequestInput.infer;
 
 export class SoapProtocolError extends Error {
   constructor() {
@@ -236,14 +238,20 @@ function xmlFields(fields: Record<string, string | null>): string {
     .map(([key, value]) => `<${key}>${escapeXml(value ?? "")}</${key}>`)
     .join("");
 }
-function envelope(operation: string, body: string): string {
+function envelope({
+  operation,
+  body,
+}: {
+  operation: string;
+  body: string;
+}): string {
   return `<?xml version="1.0" encoding="utf-8"?><soap:Envelope xmlns:soap="${soapNamespace}"><soap:Body><${operation} xmlns="${fourcsNamespace}">${body}</${operation}></soap:Body></soap:Envelope>`;
 }
 export function buildFourcsRequest(input: FourcsRequestInput): string {
-  const value = requestInput.assert(input);
-  return envelope(
-    "SSISProcessTransaction",
-    `<request>${xmlFields({
+  const value = fourcsRequestInput.assert(input);
+  return envelope({
+    operation: "SSISProcessTransaction",
+    body: `<request>${xmlFields({
       MerchantKey: value.merchantKey,
       TranType: "AuthAndPost",
       Amount: formatFourcsAmount(value.amountMinor),
@@ -256,7 +264,7 @@ export function buildFourcsRequest(input: FourcsRequestInput): string {
       CardholderName: "Fixture Payer",
       Address: "Fixture Address",
     })}</request>`,
-  );
+  });
 }
 
 export function buildFourcsResponse({
@@ -277,9 +285,9 @@ export function buildFourcsResponse({
   hostReference?: string | null;
   approvalCode?: string | null;
 }): string {
-  return envelope(
-    "SSISProcessTransactionResponse",
-    `<SSISProcessTransactionResult>${escapeXml(operationResult)}</SSISProcessTransactionResult><response>${xmlFields(
+  return envelope({
+    operation: "SSISProcessTransactionResponse",
+    body: `<SSISProcessTransactionResult>${escapeXml(operationResult)}</SSISProcessTransactionResult><response>${xmlFields(
       {
         Invoice: request?.invoice ?? "",
         TranId: request?.tranId ?? "",
@@ -295,12 +303,12 @@ export function buildFourcsResponse({
         NetworkResponseCode: null,
       },
     )}</response>`,
-  );
+  });
 }
 
 const responseFields = type({
-  Invoice: providerIdentifier,
-  TranId: providerIdentifier,
+  Invoice: providerInvoice,
+  TranId: providerTranId,
   Amount: /^(0|[1-9][0-9]{0,7})\.[0-9]{2}$/,
   Currency: /^[A-Z]{3}$/,
   ResultCode: /^[A-Za-z]{1,64}$/,

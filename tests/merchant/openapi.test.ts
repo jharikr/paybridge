@@ -31,17 +31,27 @@ test("sensitive acknowledgments, replays, snapshots, and errors are uncached and
   });
   try {
     const order = orderIdentity.assert(
-      await (await post(merchant.url, "/merchant-a/orders", orderBody)).json(),
+      await (
+        await post({
+          url: merchant.url,
+          path: "/merchant-a/orders",
+          body: orderBody,
+        })
+      ).json(),
     );
     const path = `/merchant-a/orders/${order.id}`;
-    const creation = await post(merchant.url, `${path}/payment`);
+    const creation = await post({ url: merchant.url, path: `${path}/payment` });
     expect(creation.status).toBe(201);
     const creationBody = await creation.text();
-    const replay = await post(merchant.url, `${path}/payment`);
+    const replay = await post({ url: merchant.url, path: `${path}/payment` });
     expect(await replay.text()).toBe(creationBody);
     const lookup = await fetch(`${merchant.url}${path}/payment`);
     expect(lookup.status).toBe(200);
-    const invalid = await post(merchant.url, `${path}/confirm`, {});
+    const invalid = await post({
+      url: merchant.url,
+      path: `${path}/confirm`,
+      body: {},
+    });
     expect(invalid.status).toBe(400);
     for (const response of [creation, replay, lookup, invalid]) {
       expect(response.headers.get("cache-control")).toBe("no-store");
@@ -109,11 +119,11 @@ test("merchant OpenAPI matches real order and confirmation requests and acknowle
       { ...input, mockPaymentMethodRef: "pm_real_card" },
     ])
       expect(validConfirmation(invalid)).toBe(false);
-    const orderResponse = await post(
-      merchant.url,
-      "/merchant-a/orders",
-      orderBody,
-    );
+    const orderResponse = await post({
+      url: merchant.url,
+      path: "/merchant-a/orders",
+      body: orderBody,
+    });
     expect(orderResponse.headers.get("cache-control")).toBe("no-store");
     const body: unknown = await orderResponse.json();
     const orderSchema = media.assert(orderOperation.responses["201"]);
@@ -126,20 +136,20 @@ test("merchant OpenAPI matches real order and confirmation requests and acknowle
       response: orderResponse,
       names: securityHeaders,
     });
-    const creation = await post(
-      merchant.url,
-      `/merchant-a/orders/${order.id}/payment`,
-    );
+    const creation = await post({
+      url: merchant.url,
+      path: `/merchant-a/orders/${order.id}/payment`,
+    });
     expect(creation.status).toBe(201);
     verifyResponseHeaders({
       documented: creationOperation.responses["201"],
       response: creation,
       names: acknowledgmentHeaders,
     });
-    const replay = await post(
-      merchant.url,
-      `/merchant-a/orders/${order.id}/commands/${creation.headers.get("x-merchant-command-id")}/recover`,
-    );
+    const replay = await post({
+      url: merchant.url,
+      path: `/merchant-a/orders/${order.id}/commands/${creation.headers.get("x-merchant-command-id")}/recover`,
+    });
     verifyResponseHeaders({
       documented: recoveryOperation.responses["201"],
       response: replay,
@@ -153,11 +163,11 @@ test("merchant OpenAPI matches real order and confirmation requests and acknowle
       response: lookup,
       names: securityHeaders,
     });
-    const confirmed = await post(
-      merchant.url,
-      `/merchant-a/orders/${order.id}/confirm`,
-      input,
-    );
+    const confirmed = await post({
+      url: merchant.url,
+      path: `/merchant-a/orders/${order.id}/confirm`,
+      body: input,
+    });
     expect(confirmed.status).toBe(202);
     expect(confirmed.headers.get("location")).toContain(
       "/v1/payment-intents/pi_",
@@ -174,9 +184,13 @@ test("merchant OpenAPI matches real order and confirmation requests and acknowle
         await confirmed.json(),
       ),
     ).toBe(true);
-    const large = await post(merchant.url, "/merchant-a/orders", {
-      ...orderBody,
-      description: "x".repeat(20_000),
+    const large = await post({
+      url: merchant.url,
+      path: "/merchant-a/orders",
+      body: {
+        ...orderBody,
+        description: "x".repeat(20_000),
+      },
     });
     expect(large.status).toBe(413);
     await compareResponse({

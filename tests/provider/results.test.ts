@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { type } from "arktype";
 import { expect, test } from "vitest";
 import {
+  fourcsRequestInput,
   buildFourcsRequest,
   soapAction,
   soapPath,
@@ -21,18 +22,18 @@ test("a matching duplicate is unknown and records one case without submitting a 
   await using files = await isolatedDatabases();
   await using app = await journey(files);
   const { id } = type({ id: "string" }).assert(
-    await (await create(app.url)).json(),
+    await (await create({ url: app.url })).json(),
   );
-  expect((await confirm(app.url, id)).status).toBe(202);
+  expect((await confirm({ url: app.url, id })).status).toBe(202);
   const stored = type({
     provider_transaction_id: "string",
     provider_invoice: "string",
     amount: "number",
   }).assert(
-    rows(
-      files.paybridge,
-      "SELECT a.provider_transaction_id, p.provider_invoice, p.amount FROM payment_attempts a JOIN payment_intents p ON p.id = a.payment_intent_id",
-    )[0],
+    rows({
+      path: files.paybridge,
+      sql: "SELECT a.provider_transaction_id, p.provider_invoice, p.amount FROM payment_attempts a JOIN payment_intents p ON p.id = a.payment_intent_id",
+    })[0],
   );
   const accepted = await fetch(`${app.mockUrl}${soapPath}`, {
     method: "POST",
@@ -40,14 +41,16 @@ test("a matching duplicate is unknown and records one case without submitting a 
       "content-type": "text/xml; charset=utf-8",
       soapaction: soapAction,
     },
-    body: buildFourcsRequest({
-      merchantKey: "mock-provider-key-a",
-      tranId: stored.provider_transaction_id,
-      invoice: stored.provider_invoice,
-      amountMinor: stored.amount,
-      currency: "XCD",
-      mockPaymentMethodRef: "pm_mock_approved",
-    }),
+    body: buildFourcsRequest(
+      fourcsRequestInput.assert({
+        merchantKey: "mock-provider-key-a",
+        tranId: stored.provider_transaction_id,
+        invoice: stored.provider_invoice,
+        amountMinor: stored.amount,
+        currency: "XCD",
+        mockPaymentMethodRef: "pm_mock_approved",
+      }),
+    ),
   });
   expect(accepted.status).toBe(200);
   expect(await accepted.text()).toContain(
@@ -55,20 +58,23 @@ test("a matching duplicate is unknown and records one case without submitting a 
   );
   await app.startWorker();
   await expect
-    .poll(() => lookup(app.url, id))
+    .poll(() => lookup({ url: app.url, id }))
     .toMatchObject({
       status: "UNKNOWN",
       revision: 3,
       latestAttempt: { failureCode: "DuplicateTransaction" },
     });
   expect(
-    rows(files.paybridge, "SELECT status, reason FROM reconciliations"),
+    rows({
+      path: files.paybridge,
+      sql: "SELECT status, reason FROM reconciliations",
+    }),
   ).toEqual([{ status: "REQUIRED", reason: "DuplicateTransaction" }]);
   expect(
-    rows(
-      files.mockFourcs,
-      "SELECT effect_count, tran_id FROM mock_transactions",
-    ),
+    rows({
+      path: files.mockFourcs,
+      sql: "SELECT effect_count, tran_id FROM mock_transactions",
+    }),
   ).toEqual([{ effect_count: 1, tran_id: stored.provider_transaction_id }]);
 });
 
@@ -76,11 +82,15 @@ test("a received approval after lease expiry is retained as an observation witho
   await using files = await isolatedDatabases();
   await using app = await journey(files);
   const { id } = type({ id: "string" }).assert(
-    await (await create(app.url)).json(),
+    await (await create({ url: app.url })).json(),
   );
   const { paymentAttemptId } = type({ paymentAttemptId: "string" }).assert(
     await (
-      await confirm(app.url, id, { fixture: "pm_mock_delayed_response" })
+      await confirm({
+        url: app.url,
+        id,
+        options: { fixture: "pm_mock_delayed_response" },
+      })
     ).json(),
   );
   const worker = await app.startWorker({
@@ -93,21 +103,21 @@ test("a received approval after lease expiry is retained as an observation witho
   const gate = type({ kind: "'after-acceptance'", gateId: "string" }).assert(
     await app.mock.message(),
   );
-  await expireClaim(worker, files.paybridge);
+  await expireClaim({ worker, path: files.paybridge });
   app.mock.child.send({ kind: "release", gateId: gate.gateId });
   expect(await worker.message()).toMatchObject({
     code: "provider_response_observed",
     paymentAttemptId,
   });
-  expect(await lookup(app.url, id)).toMatchObject({
+  expect(await lookup({ url: app.url, id })).toMatchObject({
     status: "PROCESSING",
     revision: 2,
   });
   expect(
-    rows(
-      files.paybridge,
-      "SELECT status, completed_at, locked_by FROM provider_outbox",
-    ),
+    rows({
+      path: files.paybridge,
+      sql: "SELECT status, completed_at, locked_by FROM provider_outbox",
+    }),
   ).toEqual([
     {
       status: "PROCESSING",
@@ -115,8 +125,12 @@ test("a received approval after lease expiry is retained as an observation witho
       locked_by: "test-expired-worker",
     },
   ]);
-  expect(rows(files.paybridge, "SELECT id FROM reconciliations")).toEqual([]);
-  expect(rows(files.paybridge, "SELECT id FROM webhook_outbox")).toEqual([]);
+  expect(
+    rows({ path: files.paybridge, sql: "SELECT id FROM reconciliations" }),
+  ).toEqual([]);
+  expect(
+    rows({ path: files.paybridge, sql: "SELECT id FROM webhook_outbox" }),
+  ).toEqual([]);
   const observation = type({
     metadata: "string",
     payment_attempt_id: "string",
@@ -124,10 +138,10 @@ test("a received approval after lease expiry is retained as an observation witho
     to_status: "null",
     intent_revision: "number",
   }).assert(
-    rows(
-      files.paybridge,
-      "SELECT metadata, payment_attempt_id, from_status, to_status, intent_revision FROM payment_events WHERE type = 'PROVIDER_RESPONSE_OBSERVED'",
-    )[0],
+    rows({
+      path: files.paybridge,
+      sql: "SELECT metadata, payment_attempt_id, from_status, to_status, intent_revision FROM payment_events WHERE type = 'PROVIDER_RESPONSE_OBSERVED'",
+    })[0],
   );
   expect(observation).toMatchObject({
     payment_attempt_id: paymentAttemptId,
@@ -149,7 +163,10 @@ test("a received approval after lease expiry is retained as an observation witho
     contradictory: false,
   });
   expect(
-    rows(files.mockFourcs, "SELECT effect_count FROM mock_transactions"),
+    rows({
+      path: files.mockFourcs,
+      sql: "SELECT effect_count FROM mock_transactions",
+    }),
   ).toEqual([{ effect_count: 1 }]);
 });
 
@@ -159,25 +176,37 @@ test.each(["pm_mock_approved", "pm_mock_malformed"])(
     await using files = await isolatedDatabases();
     await using app = await journey(files);
     const { id } = type({ id: "string" }).assert(
-      await (await create(app.url)).json(),
+      await (await create({ url: app.url })).json(),
     );
-    expect((await confirm(app.url, id, { fixture })).status).toBe(202);
+    expect(
+      (await confirm({ url: app.url, id, options: { fixture } })).status,
+    ).toBe(202);
     const worker = await app.startWorker({
       entrypoint: fileURLToPath(
         new URL("./fixtures/worker.ts", import.meta.url),
       ),
     });
-    expect(await worker.message()).toEqual({ kind: "result-rolled-back" });
-    expect(await lookup(app.url, id)).toMatchObject({
+    const diagnostic = await worker.message();
+    expect(diagnostic).toEqual({
+      kind: "result-rolled-back",
+      failure: {
+        operation: "provider_completion",
+        causes: ["type_error", "SQLITE_BUSY", "reference_error"],
+      },
+    });
+    expect(JSON.stringify(diagnostic) + worker.output()).not.toMatch(
+      /sensitive|<SOAP>|credential=|token=/,
+    );
+    expect(await lookup({ url: app.url, id })).toMatchObject({
       status: "PROCESSING",
       revision: 2,
       latestAttempt: { status: "PROCESSING" },
     });
     expect(
-      rows(
-        files.paybridge,
-        "SELECT status, provider_operation_result, provider_host_reference FROM payment_attempts",
-      ),
+      rows({
+        path: files.paybridge,
+        sql: "SELECT status, provider_operation_result, provider_host_reference FROM payment_attempts",
+      }),
     ).toEqual([
       {
         status: "PROCESSING",
@@ -186,21 +215,28 @@ test.each(["pm_mock_approved", "pm_mock_malformed"])(
       },
     ]);
     expect(
-      rows(
-        files.paybridge,
-        "SELECT status, attempt_count, completed_at FROM provider_outbox",
-      ),
+      rows({
+        path: files.paybridge,
+        sql: "SELECT status, attempt_count, completed_at FROM provider_outbox",
+      }),
     ).toEqual([{ status: "PROCESSING", attempt_count: 1, completed_at: null }]);
     expect(
-      rows(
-        files.paybridge,
-        "SELECT type FROM payment_events ORDER BY intent_revision",
-      ),
+      rows({
+        path: files.paybridge,
+        sql: "SELECT type FROM payment_events ORDER BY intent_revision",
+      }),
     ).toEqual([{ type: "PAYMENT_CREATED" }, { type: "ATTEMPT_CREATED" }]);
-    expect(rows(files.paybridge, "SELECT id FROM reconciliations")).toEqual([]);
-    expect(rows(files.paybridge, "SELECT id FROM webhook_outbox")).toEqual([]);
     expect(
-      rows(files.mockFourcs, "SELECT effect_count FROM mock_transactions"),
+      rows({ path: files.paybridge, sql: "SELECT id FROM reconciliations" }),
+    ).toEqual([]);
+    expect(
+      rows({ path: files.paybridge, sql: "SELECT id FROM webhook_outbox" }),
+    ).toEqual([]);
+    expect(
+      rows({
+        path: files.mockFourcs,
+        sql: "SELECT effect_count FROM mock_transactions",
+      }),
     ).toEqual([{ effect_count: 1 }]);
   },
 );
@@ -209,17 +245,25 @@ test("reconciliation constraints retain one matched unknown case and reject inva
   await using files = await isolatedDatabases();
   await using app = await journey(files);
   const { id } = type({ id: "string" }).assert(
-    await (await create(app.url)).json(),
+    await (await create({ url: app.url })).json(),
   );
   const other = type({ id: "string" }).assert(
-    await (await create(app.url, { key: "other", merchant: "b" })).json(),
+    await (
+      await create({ url: app.url, options: { key: "other", merchant: "b" } })
+    ).json(),
   ).id;
   expect(
-    (await confirm(app.url, id, { fixture: "pm_mock_malformed" })).status,
+    (
+      await confirm({
+        url: app.url,
+        id,
+        options: { fixture: "pm_mock_malformed" },
+      })
+    ).status,
   ).toBe(202);
   const worker = await app.startWorker();
   await expect
-    .poll(() => lookup(app.url, id))
+    .poll(() => lookup({ url: app.url, id }))
     .toMatchObject({ status: "UNKNOWN" });
   await worker.stop();
   const db = new DatabaseSync(files.paybridge);
@@ -260,7 +304,7 @@ test("reconciliation constraints retain one matched unknown case and reject inva
   } finally {
     db.close();
   }
-  expect(await lookup(app.url, id)).toMatchObject({
+  expect(await lookup({ url: app.url, id })).toMatchObject({
     status: "UNKNOWN",
     revision: 3,
   });

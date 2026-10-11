@@ -5,14 +5,14 @@ import { payload, receiver, signed } from "./support.ts";
 
 test("authenticated receipt facts and completed work remain immutable and retained", async () => {
   await using files = await isolatedDatabases();
-  const app = await receiver(files.merchant);
+  const app = await receiver({ path: files.merchant });
   try {
     expect(
       (
         await fetch(`${app.url}/api/webhooks/paybridge/merchant-a`, {
           method: "POST",
           body: payload,
-          headers: signed(payload),
+          headers: signed({ body: payload }),
         })
       ).status,
     ).toBe(204);

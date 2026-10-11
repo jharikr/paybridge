@@ -13,7 +13,7 @@ import {
   rawSql,
 } from "@prisma/orm-sqlite/migration";
 
-function constraint(name: string, sql: string) {
+function constraint({ name, sql }: { name: string; sql: string }) {
   return rawSql({
     id: `trigger.${name}`,
     label: `Create ${name}`,
@@ -106,30 +106,30 @@ export default class M extends Migration<Start, End> {
         index: "provider_outbox_status_lease_expires_at_idx_7b34d2bd",
         columns: ["status", "lease_expires_at"],
       }),
-      constraint(
-        "reconciliation_identity_fixed",
-        `CREATE TRIGGER reconciliation_identity_fixed BEFORE UPDATE ON reconciliations WHEN NEW.id IS NOT OLD.id OR NEW.payment_intent_id IS NOT OLD.payment_intent_id OR NEW.payment_attempt_id IS NOT OLD.payment_attempt_id OR NEW.created_at IS NOT OLD.created_at BEGIN SELECT RAISE(ABORT, 'reconciliation_identity_fixed'); END`,
-      ),
-      constraint(
-        "reconciliation_attempt_matches",
-        `CREATE TRIGGER reconciliation_attempt_matches BEFORE INSERT ON reconciliations WHEN NEW.status <> 'REQUIRED' OR NOT EXISTS (SELECT 1 FROM payment_attempts a JOIN payment_intents p ON p.id = a.payment_intent_id WHERE a.id = NEW.payment_attempt_id AND a.payment_intent_id = NEW.payment_intent_id AND a.status = 'UNKNOWN' AND p.status = 'UNKNOWN') BEGIN SELECT RAISE(ABORT, 'reconciliation_attempt_matches'); END`,
-      ),
-      constraint(
-        "reconciliation_state_insert",
-        `CREATE TRIGGER reconciliation_state_insert BEFORE INSERT ON reconciliations WHEN ${invalidState} BEGIN SELECT RAISE(ABORT, 'reconciliation_state_insert'); END`,
-      ),
-      constraint(
-        "reconciliation_state_update",
-        `CREATE TRIGGER reconciliation_state_update BEFORE UPDATE ON reconciliations WHEN ${invalidState} BEGIN SELECT RAISE(ABORT, 'reconciliation_state_update'); END`,
-      ),
-      constraint(
-        "reconciliation_transition",
-        `CREATE TRIGGER reconciliation_transition BEFORE UPDATE ON reconciliations WHEN OLD.status = 'RESOLVED' OR (OLD.status = 'IN_PROGRESS' AND NEW.status = 'REQUIRED') BEGIN SELECT RAISE(ABORT, 'reconciliation_transition'); END`,
-      ),
-      constraint(
-        "reconciliation_retained",
-        `CREATE TRIGGER reconciliation_retained BEFORE DELETE ON reconciliations BEGIN SELECT RAISE(ABORT, 'reconciliation_retained'); END`,
-      ),
+      constraint({
+        name: "reconciliation_identity_fixed",
+        sql: `CREATE TRIGGER reconciliation_identity_fixed BEFORE UPDATE ON reconciliations WHEN NEW.id IS NOT OLD.id OR NEW.payment_intent_id IS NOT OLD.payment_intent_id OR NEW.payment_attempt_id IS NOT OLD.payment_attempt_id OR NEW.created_at IS NOT OLD.created_at BEGIN SELECT RAISE(ABORT, 'reconciliation_identity_fixed'); END`,
+      }),
+      constraint({
+        name: "reconciliation_attempt_matches",
+        sql: `CREATE TRIGGER reconciliation_attempt_matches BEFORE INSERT ON reconciliations WHEN NEW.status <> 'REQUIRED' OR NOT EXISTS (SELECT 1 FROM payment_attempts a JOIN payment_intents p ON p.id = a.payment_intent_id WHERE a.id = NEW.payment_attempt_id AND a.payment_intent_id = NEW.payment_intent_id AND a.status = 'UNKNOWN' AND p.status = 'UNKNOWN') BEGIN SELECT RAISE(ABORT, 'reconciliation_attempt_matches'); END`,
+      }),
+      constraint({
+        name: "reconciliation_state_insert",
+        sql: `CREATE TRIGGER reconciliation_state_insert BEFORE INSERT ON reconciliations WHEN ${invalidState} BEGIN SELECT RAISE(ABORT, 'reconciliation_state_insert'); END`,
+      }),
+      constraint({
+        name: "reconciliation_state_update",
+        sql: `CREATE TRIGGER reconciliation_state_update BEFORE UPDATE ON reconciliations WHEN ${invalidState} BEGIN SELECT RAISE(ABORT, 'reconciliation_state_update'); END`,
+      }),
+      constraint({
+        name: "reconciliation_transition",
+        sql: `CREATE TRIGGER reconciliation_transition BEFORE UPDATE ON reconciliations WHEN OLD.status = 'RESOLVED' OR (OLD.status = 'IN_PROGRESS' AND NEW.status = 'REQUIRED') BEGIN SELECT RAISE(ABORT, 'reconciliation_transition'); END`,
+      }),
+      constraint({
+        name: "reconciliation_retained",
+        sql: `CREATE TRIGGER reconciliation_retained BEFORE DELETE ON reconciliations BEGIN SELECT RAISE(ABORT, 'reconciliation_retained'); END`,
+      }),
     ];
   }
 }

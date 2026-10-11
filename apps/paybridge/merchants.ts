@@ -5,7 +5,7 @@ import type { PaybridgeDatabase } from "./database.ts";
 
 export const hashSecret = (secret: string) =>
   createHash("sha256").update(secret).digest("hex");
-const authenticatedMerchant = type({
+export const authenticatedMerchant = type({
   id: merchantId,
   returnOrigin: "string",
   providerAccountRef: "'mock-account-a' | 'mock-account-b'",

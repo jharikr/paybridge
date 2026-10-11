@@ -1,5 +1,5 @@
 import { appendFinancialEvent } from "./financial-events.ts";
-import { snapshot } from "./payments.ts";
+import { snapshot, paymentReturnLocation } from "./payments.ts";
 import { randomBytes } from "node:crypto";
 import {
   paymentAttemptId,
@@ -41,7 +41,7 @@ export async function confirmPayment({
   id,
   input,
   key,
-  paybridgeOrigin,
+  acknowledgment,
   beforeCommit,
 }: {
   db: PaybridgeDatabase;
@@ -49,17 +49,24 @@ export async function confirmPayment({
   id: typeof paymentId.infer;
   input: ConfirmPaymentInput;
   key: string;
-  paybridgeOrigin: string;
+  acknowledgment:
+    { kind: "merchant"; paybridgeOrigin: string } | { kind: "checkout" };
   beforeCommit?: () => Promise<void>;
 }): Promise<ConfirmationResult> {
+  const operation =
+    acknowledgment.kind === "merchant" ? "confirm_payment" : "confirm_checkout";
+  const target =
+    acknowledgment.kind === "merchant"
+      ? `/v1/payment-intents/${id}/confirm`
+      : `/checkout/${id}/confirm`;
   const identity = {
     merchantId: merchant.id,
     key,
-    operation: "confirm_payment",
+    operation,
     requestHash: commandHash({
-      operation: "confirm_payment",
+      operation,
       method: "POST",
-      target: `/v1/payment-intents/${id}/confirm`,
+      target,
       input,
     }),
   };
@@ -123,8 +130,8 @@ export async function confirmPayment({
         fromStatus: payment.status,
         toStatus: "PROCESSING",
         intentRevision: payment.revision + 1,
-        actorType: "MERCHANT",
-        actorId: merchant.id,
+        actorType: acknowledgment.kind === "merchant" ? "MERCHANT" : "PAYER",
+        actorId: acknowledgment.kind === "merchant" ? merchant.id : id,
         metadata: "{}",
         createdAt: now,
       });
@@ -142,25 +149,44 @@ export async function confirmPayment({
         lockedBy: null,
         leaseExpiresAt: null,
       });
-      const response: CommandAcknowledgment = {
-        status: 202,
-        body: JSON.stringify(
-          confirmationAcknowledgment.assert({
-            paymentIntentId: id,
-            paymentAttemptId: attemptId,
-            attemptNumber,
-            status: "PROCESSING",
-            revision: payment.revision + 1,
-            statusUrl: `${paybridgeOrigin}/v1/payment-intents/${id}`,
-          }),
-        ),
-        headers: {
-          location: `/v1/payment-intents/${id}`,
-          "cache-control": "no-store",
-          "x-content-type-options": "nosniff",
-          "content-type": "application/json; charset=utf-8",
-        },
-      };
+      let response: CommandAcknowledgment;
+      if (acknowledgment.kind === "checkout") {
+        const location = paymentReturnLocation({
+          returnUrl: payment.returnUrl,
+          id,
+          merchant,
+        });
+        if (location === null) throw new CommandRejected("not_found");
+        response = {
+          status: 303,
+          body: "",
+          headers: {
+            location,
+            "cache-control": "no-store",
+            "x-content-type-options": "nosniff",
+          },
+        };
+      } else {
+        response = {
+          status: 202,
+          body: JSON.stringify(
+            confirmationAcknowledgment.assert({
+              paymentIntentId: id,
+              paymentAttemptId: attemptId,
+              attemptNumber,
+              status: "PROCESSING",
+              revision: payment.revision + 1,
+              statusUrl: `${acknowledgment.paybridgeOrigin}/v1/payment-intents/${id}`,
+            }),
+          ),
+          headers: {
+            location: `/v1/payment-intents/${id}`,
+            "cache-control": "no-store",
+            "x-content-type-options": "nosniff",
+            "content-type": "application/json; charset=utf-8",
+          },
+        };
+      }
       await completeCommand({
         db,
         tx,

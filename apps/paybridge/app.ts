@@ -6,19 +6,26 @@ import {
   creationAcknowledgment,
   paymentId,
   paymentSnapshot,
+  confirmPaymentInput,
+  confirmationAcknowledgment,
 } from "../../contracts/payments.ts";
 import type { PaybridgeDatabase } from "./database.ts";
 import { authenticateMerchant } from "./merchants.ts";
+import { confirmPayment, cancelPayment } from "./payment-commands.ts";
 import { createPayment, lookupPayment, validReturnUrl } from "./payments.ts";
 
 export async function createPaybridgeApp({
   db,
   paybridgeOrigin,
   beforeCreationCommit,
+  beforeConfirmationCommit,
+  beforeCancellationCommit,
 }: {
   db: PaybridgeDatabase;
   paybridgeOrigin: string;
   beforeCreationCommit?: () => Promise<void>;
+  beforeConfirmationCommit?: () => Promise<void>;
+  beforeCancellationCommit?: () => Promise<void>;
 }) {
   const { app, requestSchema } = await createHttpApp({
     title: "Paybridge simulated payments",
@@ -49,7 +56,7 @@ export async function createPaybridgeApp({
           type: "string",
           const: "1",
           description:
-            "Present only for command_in_progress. Omitted for idempotency_conflict.",
+            "Present only for command_in_progress. Omitted for other conflicts.",
         },
       },
     },
@@ -247,6 +254,212 @@ export async function createPaybridgeApp({
             ),
           );
       return payment;
+    },
+  );
+  app.post<{
+    Body: typeof confirmPaymentInput.infer;
+    Params: typeof params.infer;
+    Headers: typeof creationHeaders.infer;
+  }>(
+    "/v1/payment-intents/:paymentId/confirm",
+    {
+      schema: {
+        security,
+        querystring: noQuery,
+        params: requestSchema(params),
+        headers: requestSchema(creationHeaders),
+        body: requestSchema(confirmPaymentInput),
+        response: {
+          202: {
+            ...confirmationAcknowledgment.toJsonSchema(),
+            headers: { location: { type: "string" }, ...snapshotHeaders },
+          },
+          ...errors,
+        },
+      },
+      preValidation: async (request, reply) => {
+        if (
+          commandKey(request.headers["idempotency-key"]) instanceof type.errors
+        )
+          return reply
+            .code(400)
+            .send(
+              error(
+                "invalid_idempotency_key",
+                "A command key of 1 to 128 characters is required.",
+                request.id,
+              ),
+            );
+      },
+    },
+    async (request, reply) => {
+      const merchant = await authenticateMerchant({
+        db,
+        authorization: request.headers.authorization,
+      });
+      if (!merchant)
+        return reply
+          .code(401)
+          .send(
+            error(
+              "unauthorized",
+              "Valid merchant credentials are required.",
+              request.id,
+            ),
+          );
+      const result = await confirmPayment({
+        db,
+        merchant,
+        id: request.params.paymentId,
+        input: request.body,
+        key: request.headers["idempotency-key"],
+        paybridgeOrigin,
+        ...(beforeConfirmationCommit
+          ? { beforeCommit: beforeConfirmationCommit }
+          : {}),
+      });
+      switch (result.kind) {
+        case "completed":
+          return reply
+            .code(result.acknowledgment.status)
+            .headers(result.acknowledgment.headers)
+            .send(result.acknowledgment.body);
+        case "conflict":
+          return reply
+            .code(409)
+            .send(
+              error(
+                "idempotency_conflict",
+                "The command key identifies a different request.",
+                request.id,
+              ),
+            );
+        case "in_progress":
+          return reply
+            .code(409)
+            .header("retry-after", "1")
+            .send(
+              error(
+                "command_in_progress",
+                "The command is still in progress.",
+                request.id,
+              ),
+            );
+        case "not_found":
+          return reply
+            .code(404)
+            .send(
+              error(
+                "payment_not_found",
+                "The payment was not found.",
+                request.id,
+              ),
+            );
+        case "revision_conflict":
+          return reply
+            .code(409)
+            .send(
+              error(
+                "payment_revision_conflict",
+                "The payment revision has changed.",
+                request.id,
+              ),
+            );
+        case "not_confirmable":
+          return reply
+            .code(409)
+            .send(
+              error(
+                "payment_not_confirmable",
+                "The payment cannot be confirmed in its current state.",
+                request.id,
+              ),
+            );
+        default: {
+          const exhaustive: never = result;
+          return exhaustive;
+        }
+      }
+    },
+  );
+  app.post<{ Params: typeof params.infer }>(
+    "/v1/payment-intents/:paymentId/cancel",
+    {
+      schema: {
+        security,
+        querystring: noQuery,
+        params: requestSchema(params),
+        description:
+          "Permanently cancel a PENDING payment. No request body or idempotency key is required. Repeats return the unchanged cancelled snapshot.",
+        response: {
+          200: { ...paymentSnapshot.toJsonSchema(), headers: snapshotHeaders },
+          ...errors,
+        },
+      },
+      preValidation: async (request, reply) => {
+        if (request.body !== undefined)
+          return reply
+            .code(400)
+            .send(
+              error(
+                "invalid_request",
+                "Cancellation has no request body.",
+                request.id,
+              ),
+            );
+      },
+    },
+    async (request, reply) => {
+      const merchant = await authenticateMerchant({
+        db,
+        authorization: request.headers.authorization,
+      });
+      if (!merchant)
+        return reply
+          .code(401)
+          .send(
+            error(
+              "unauthorized",
+              "Valid merchant credentials are required.",
+              request.id,
+            ),
+          );
+      const result = await cancelPayment({
+        db,
+        merchant,
+        id: request.params.paymentId,
+        ...(beforeCancellationCommit
+          ? { beforeCommit: beforeCancellationCommit }
+          : {}),
+      });
+      switch (result.kind) {
+        case "cancelled":
+          return result.payment;
+        case "not_found":
+          return reply
+            .code(404)
+            .send(
+              error(
+                "payment_not_found",
+                "The payment was not found.",
+                request.id,
+              ),
+            );
+        case "not_cancellable":
+          return reply
+            .code(409)
+            .send(
+              error(
+                "payment_not_cancellable",
+                "The payment cannot be cancelled in its current state.",
+                request.id,
+              ),
+            );
+        default: {
+          const exhaustive: never = result;
+          return exhaustive;
+        }
+      }
     },
   );
   app.get("/openapi.json", { schema: { hide: true } }, () => app.swagger());

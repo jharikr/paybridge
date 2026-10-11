@@ -1,4 +1,5 @@
 import { type } from "arktype";
+import { mockPaymentMethodRef } from "./fourcs.ts";
 
 export const merchantId = type("string > 0").brand("MerchantId");
 export const paymentId = type(/^pi_[a-f0-9]{32}$/).brand("PaymentId");
@@ -34,6 +35,34 @@ export const createPaymentInput = type({
 });
 export type CreatePaymentInput = typeof createPaymentInput.infer;
 export const commandKey = boundedText(128);
+export const paymentAttemptId =
+  type(/^pa_[a-f0-9]{32}$/).brand("PaymentAttemptId");
+export const attemptStatus = type(
+  "'PROCESSING' | 'SUCCEEDED' | 'FAILED' | 'UNKNOWN'",
+);
+export const paymentRevision = type("1 <= number.integer <= 9007199254740991");
+export const confirmPaymentInput = type({
+  mockPaymentMethodRef,
+  expectedRevision: paymentRevision,
+  "+": "reject",
+});
+export type ConfirmPaymentInput = typeof confirmPaymentInput.infer;
+export const confirmationAcknowledgment = type({
+  paymentIntentId: paymentId,
+  paymentAttemptId,
+  attemptNumber: "number.integer >= 1",
+  status: "'PROCESSING'",
+  revision: paymentRevision,
+  statusUrl: "string",
+  "+": "reject",
+});
+export const latestAttempt = type({
+  id: paymentAttemptId,
+  attemptNumber: "number.integer >= 1",
+  status: attemptStatus,
+  "failureCode?": "string",
+  "+": "reject",
+});
 export const paymentSnapshot = type({
   id: paymentId,
   merchantReference: "string",
@@ -43,7 +72,7 @@ export const paymentSnapshot = type({
   revision: "number.integer >= 1",
   createdAt: "string",
   updatedAt: "string",
-  latestAttempt: "null",
+  latestAttempt: latestAttempt.or("null"),
   "+": "reject",
 });
 export const creationAcknowledgment = paymentSnapshot.merge({

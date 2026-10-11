@@ -1,7 +1,11 @@
 import { type } from "arktype";
 import type { PaybridgeDatabase, PaybridgeTransaction } from "./database.ts";
 import { hashSecret } from "./merchants.ts";
-import type { merchantId, paymentId } from "../../contracts/payments.ts";
+import type {
+  merchantId,
+  paymentId,
+  paymentAttemptId,
+} from "../../contracts/payments.ts";
 
 type JsonValue =
   string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
@@ -86,17 +90,19 @@ export async function completeCommand({
   identity,
   resourceId,
   response,
+  attemptId = null,
 }: {
   db: PaybridgeDatabase;
   tx: PaybridgeTransaction;
   identity: CommandIdentity;
   resourceId: typeof paymentId.infer;
   response: CommandAcknowledgment;
+  attemptId?: typeof paymentAttemptId.infer | null;
 }) {
   await tx.execute(
     db.raw.sql`
     UPDATE idempotency_keys SET status = 'COMPLETED', resource_id = ${resourceId}, response_status = ${response.status},
-      response_body = ${response.body}, response_headers = ${JSON.stringify(response.headers)}, completed_at = ${new Date().toISOString()}
+      payment_attempt_id = NULLIF(${attemptId ?? ""}, ''), response_body = ${response.body}, response_headers = ${JSON.stringify(response.headers)}, completed_at = ${new Date().toISOString()}
     WHERE merchant_id = ${identity.merchantId} AND key = ${identity.key} AND status = 'IN_PROGRESS'
   `
       .affectedCount()

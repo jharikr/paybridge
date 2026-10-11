@@ -358,6 +358,7 @@ export async function runProviderWorker({
   workerId,
   signal,
   now = () => new Date(),
+  afterClaim,
   beforeResultCommit,
   diagnostic,
 }: {
@@ -366,6 +367,7 @@ export async function runProviderWorker({
   workerId: string;
   signal: AbortSignal;
   now?: () => Date;
+  afterClaim?: () => Promise<void>;
   beforeResultCommit?: () => Promise<void>;
   diagnostic: (value: {
     code: string;
@@ -384,6 +386,7 @@ export async function runProviderWorker({
       });
       if (claim) {
         paymentAttemptId = claim.attempt.id;
+        await afterClaim?.();
         if (Date.parse(claim.expires) - now().getTime() <= config.timeoutMs) {
           diagnostic({
             code: "provider_claim_exhausted",

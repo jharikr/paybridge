@@ -16,3 +16,12 @@ CLAUDE.local.md
 
 # Local logs
 *.log
+
+# Dependencies and local synthetic databases
+node_modules/
+coverage/
+.data/
+*.db
+*.db-shm
+*.db-wal
+*.db-journal

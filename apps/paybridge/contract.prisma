@@ -158,5 +158,6 @@ model Reconciliation {
   resolvedAt String? @map("resolved_at")
   payment PaymentIntent @relation(fields: [paymentIntentId], references: [id])
   attempt PaymentAttempt @relation(fields: [paymentAttemptId], references: [id])
+  @@index([status, createdAt])
   @@map("reconciliations")
 }

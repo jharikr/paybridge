@@ -1,3 +1,4 @@
+import { appendFinancialEvent } from "./financial-events.ts";
 import { snapshot } from "./payments.ts";
 import { randomBytes } from "node:crypto";
 import {
@@ -206,48 +207,16 @@ export async function cancelPayment({
     if (payment.status !== "CANCELLED")
       return { kind: "not_cancellable" } as const;
     if (changed.affectedRows === 1) {
-      const eventId = `evt_${randomBytes(16).toString("hex")}`;
-      await tx.orm.PaymentEvent.create({
-        id: eventId,
-        paymentIntentId: id,
+      await appendFinancialEvent({
+        tx,
+        payment,
         paymentAttemptId: null,
-        type: "PAYMENT_CANCELLED",
         fromStatus: "PENDING",
-        toStatus: "CANCELLED",
-        intentRevision: payment.revision,
+        status: "CANCELLED",
         actorType: "MERCHANT",
         actorId: merchant.id,
         metadata: "{}",
-        createdAt: now,
-      });
-      await tx.orm.WebhookOutbox.create({
-        id: `who_${randomBytes(16).toString("hex")}`,
-        paymentEventId: eventId,
-        merchantId: merchant.id,
-        paymentIntentId: id,
-        eventType: "payment.cancelled",
-        payload: JSON.stringify({
-          id: eventId,
-          type: "payment.cancelled",
-          createdAt: now,
-          data: {
-            paymentIntentId: id,
-            merchantReference: payment.merchantReference,
-            amount: payment.amount,
-            currency: payment.currency,
-            status: "CANCELLED",
-            revision: payment.revision,
-          },
-        }),
-        status: "PENDING",
-        attemptCount: 0,
-        nextAttemptAt: now,
-        lastError: null,
-        createdAt: now,
-        deliveredAt: null,
-        claimToken: null,
-        lockedBy: null,
-        leaseExpiresAt: null,
+        at: now,
       });
       await beforeCommit?.();
     }

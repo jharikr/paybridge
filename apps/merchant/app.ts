@@ -2,6 +2,7 @@ import { type } from "arktype";
 import { registerWebhooks, type ReceiptCheckpoint } from "./webhooks.ts";
 import type { FastifyReply } from "fastify";
 import { createHttpApp, errorResponse } from "../../contracts/http.ts";
+import { registerOpenApi } from "../../contracts/openapi.ts";
 import {
   createOrderInput,
   merchantCommandId,
@@ -219,7 +220,7 @@ export async function createMerchantApp({
       return sendAcknowledgment(reply, result);
     },
   );
-  app.get("/openapi.json", async () => app.swagger());
+  registerOpenApi(app);
   app.get(
     "/:merchantFixture/orders/:orderId/commands",
     {

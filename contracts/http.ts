@@ -35,6 +35,8 @@ function rejectRouterRequest({
 }) {
   response.writeHead(statusCode, {
     "content-type": "application/json; charset=utf-8",
+    "cache-control": "no-store",
+    "x-content-type-options": "nosniff",
   });
   response.end(JSON.stringify(invalidRequest({ requestId: newRequestId() })));
 }
@@ -49,6 +51,7 @@ export async function createHttpApp({
   const validators = new Map<string, Type>();
   const schemaIdentity = type({ $id: "string" });
   const app = Fastify({
+    exposeHeadRoutes: false,
     bodyLimit: 16_384,
     genReqId: newRequestId,
     routerOptions: {
@@ -74,7 +77,17 @@ export async function createHttpApp({
     options?: Parameters<Type["toJsonSchema"]>[0],
   ) {
     const id = `urn:paybridge:schema:${validators.size}`;
-    const schema = { ...validator.toJsonSchema(options), $id: id };
+    const source = validator.toJsonSchema(options);
+    // Swagger treats an object without properties as legacy parameter shorthand.
+    const schema = {
+      ...source,
+      ...("type" in source &&
+      source.type === "object" &&
+      !("properties" in source)
+        ? { properties: {} }
+        : {}),
+      $id: id,
+    };
     validators.set(id, validator);
     return schema;
   }

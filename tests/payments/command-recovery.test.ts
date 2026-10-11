@@ -4,6 +4,7 @@ import { type } from "arktype";
 import { expect, test } from "vitest";
 import { isolatedDatabases } from "../support/databases.ts";
 import { startNodeProcess } from "../support/process.ts";
+import { contractAt, compareResponse } from "../contracts/support.ts";
 
 const entrypoint = fileURLToPath(
   new URL("../../apps/paybridge/server.ts", import.meta.url),
@@ -230,6 +231,13 @@ for (const operation of ["confirm", "cancel"] as const) {
       const command = operation === "confirm" ? confirm : cancel;
       const failed = await command(server.url, id);
       expect(failed.status).toBe(500);
+      await compareResponse({
+        contract: await contractAt(server.url),
+        path: `/v1/payment-intents/{paymentId}/${operation}`,
+        method: "post",
+        response: failed.clone(),
+        status: 500,
+      });
       expect(await failed.json()).toMatchObject({
         error: { code: "internal_error" },
       });
@@ -276,12 +284,21 @@ test("a killed precommit confirmation releases bounded contention without retain
     expect(await held.message()).toEqual({ kind: "before-commit" });
     const started = performance.now();
     const blocked = await confirm(other.url, id);
+    const blockedResponse = blocked.clone();
     expect(blocked.status).toBe(503);
     expect(blocked.headers.get("retry-after")).toBe("1");
     expect(await blocked.json()).toMatchObject({
       error: { code: "temporarily_unavailable" },
     });
     expect(performance.now() - started).toBeLessThan(8000);
+    await compareResponse({
+      contract: await contractAt(other.url),
+      path: "/v1/payment-intents/{paymentId}/confirm",
+      method: "post",
+      response: blockedResponse,
+      status: 503,
+      headers: ["cache-control", "x-content-type-options", "retry-after"],
+    });
     await held.stop();
     expect(await interrupted).toBe("connection-lost");
     expect(state(files.paybridge)).toEqual({

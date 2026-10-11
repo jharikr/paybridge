@@ -1,13 +1,12 @@
 # paybridge
 
-Paybridge belongs to the Transac project. Application setup is pending the owner's next command. Correctness, access control, auditability, and historical integrity matter for payment records.
+Paybridge belongs to the Transac project. Correctness, access control, auditability, and historical integrity matter for payment records.
 
 ## Runtime
 
-- Use Bun and bunx when application setup requires JavaScript tooling.
-- No application runtime, framework, database, or development server has been configured yet. Follow the owner's next setup command before choosing them.
-- Once a development server exists, leave its lifecycle to the owner unless the task requires managing it or the owner asks.
-- Confirm database targets and data retention requirements before schema changes. No migration policy has been chosen yet.
+- Use Bun and bunx for JavaScript tooling. Node runs the TypeScript applications and tests. For dependency or driver changes, read [stack compatibility](docs/stack-compatibility.md).
+- Leave owner development-server lifecycles to the owner unless the task requires managing them or the owner asks. Tests and the [retained demo](docs/demo.md) manage only their own processes and fresh files.
+- The approved synthetic targets are separate Paybridge, merchant, and mock SQLite files under `.data`. Keep payment records, command keys, receipts, and evidence for the lifetime of those files. Migrations preserve existing history and constraints. Confirm targets and retention before schema changes outside this approved scope.
 - Keep repository and new folder names lowercase.
 
 ## Autonomy

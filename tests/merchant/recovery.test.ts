@@ -3,6 +3,7 @@ import { type } from "arktype";
 import { expect, test } from "vitest";
 import { startNodeProcess } from "../support/process.ts";
 import { isolatedDatabases } from "../support/databases.ts";
+import { contractAt, compareResponse } from "../contracts/support.ts";
 import { journey, rows } from "../provider/support.ts";
 import {
   checkpoint,
@@ -356,6 +357,13 @@ test("local completion rollback retains a recoverable command and never commits 
     ).id;
     const failed = await post(first.url, `/merchant-a/orders/${id}/payment`);
     expect(failed.status).toBe(500);
+    await compareResponse({
+      contract: await contractAt(first.url),
+      path: "/{merchantFixture}/orders/{orderId}/payment",
+      method: "post",
+      response: failed,
+      status: 500,
+    });
     expect(
       rows(
         files.merchant,

@@ -182,6 +182,7 @@ const receiverDocument = type({
         parameters: type({
           in: "string",
           name: "string",
+          "required?": "boolean",
           schema: "unknown",
         }).array(),
         requestBody: {
@@ -234,17 +235,30 @@ test("the receiver OpenAPI describes signed JSON bytes and matches real response
     ).toBe(false);
     for (const parameter of operation.parameters.filter(
       (item) => item.in === "header",
-    ))
+    )) {
+      expect(parameter.required).toBe(true);
       expect(
         ajv.compile(type("object").assert(parameter.schema))(
           new Headers(signed(payload)).get(parameter.name),
         ),
       ).toBe(true);
+      expect(
+        ajv.compile(type("object").assert(parameter.schema))("invalid"),
+      ).toBe(false);
+    }
     for (const status of ["400", "401", "409", "413", "415", "500", "503"])
       jsonResponse.assert(operation.responses[status]);
     const url = `${app.url}/api/webhooks/paybridge/merchant-a`;
     for (const [body, headers, status] of [
       [payload, signed(payload), 204],
+      [
+        payload,
+        {
+          ...signed(payload),
+          "content-type": 'application/json; charset = "UTF-8"',
+        },
+        204,
+      ],
       [payload, signed(payload), 204],
       [payload + " ", signed(payload + " "), 409],
       ["{", signed("{"), 400],
@@ -260,7 +274,10 @@ test("the receiver OpenAPI describes signed JSON bytes and matches real response
         names: ["cache-control", "x-content-type-options"],
       });
       if (status === 204) expect(await response.text()).toBe("");
-      else
+      else {
+        expect(response.headers.get("content-type")).toBe(
+          "application/json; charset=utf-8",
+        );
         expect(
           ajv.compile(
             jsonResponse.assert(operation.responses[String(status)]).content[
@@ -268,6 +285,7 @@ test("the receiver OpenAPI describes signed JSON bytes and matches real response
             ].schema,
           )(await response.json()),
         ).toBe(true);
+      }
     }
   } finally {
     await app.stop();

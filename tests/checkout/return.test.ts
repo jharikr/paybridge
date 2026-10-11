@@ -1,6 +1,7 @@
 import { controlledMerchant, controlledPaybridge } from "./support.ts";
 import { expect, test } from "vitest";
 import { isolatedDatabases } from "../support/databases.ts";
+import { contractAt, compareResponse } from "../contracts/support.ts";
 import { journey, lookup, rows } from "../provider/support.ts";
 import {
   launchMerchant,
@@ -224,7 +225,17 @@ for (const fault of faults) {
       const result = fetch(
         `${merchant.url}/merchant-a/payment-return?paymentId=${payment.id}`,
       ).then(
-        (response) => response.status,
+        async (response) => {
+          if (fault === "rollback")
+            await compareResponse({
+              contract: await contractAt(merchant.url),
+              path: "/{merchantFixture}/payment-return",
+              method: "get",
+              response,
+              status: 500,
+            });
+          return response.status;
+        },
         () => "lost",
       );
       if (fault === "before-commit") {

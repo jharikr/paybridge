@@ -38,10 +38,29 @@ UNKNOWN completes automatic financial submission. Lookup never contacts the prov
 
 Completion requires the current claim token, owner, unexpired lease, PROCESSING attempt, and PROCESSING parent. The result transaction acquires a write lock before reading lease time so lock contention cannot bypass expiry. A received response rejected by those guards appends bounded `PROVIDER_RESPONSE_OBSERVED` history with the exact attempt, account, transaction ID, classification, useful references, and observation time. Malformed XML, oversized bodies, and invalid HTTP responses retain their safe classification even when no parsed provider fields are available. These observations change no financial state or revision and create no webhook. Contradictory evidence against an already resolved result emits `provider_observation_conflicts` with the attempt ID. A lost connection or aborted transport has no received-response observation; a rejected stale transport result emits `provider_transport_not_applied`. A hard-aborted request cannot supply a later response observation.
 
-Only allowlisted result codes and bounded parsed references are retained. Arbitrary provider error messages and raw SOAP stay out of storage and logs. Worker diagnostics contain a fixed code, worker identity, and the attempt ID when available. Storage failures leave the unfinished claim for bounded lease recovery. Manual resolution and the full overlapping-process recovery matrix are covered by their dependent tickets.
+Only allowlisted result codes and bounded parsed references are retained. Arbitrary provider error messages and raw SOAP stay out of storage and logs. Worker diagnostics contain a fixed code, worker identity, and the attempt ID when available. Storage failures leave the unfinished claim for bounded lease recovery. Manual resolution is covered by its dependent ticket.
+
+## Recovery across processes
+
+`bun run test tests/recovery` runs the API, provider workers, and mock as separate processes against isolated durable files. It sends SIGKILL at the following boundaries and reopens the same files:
+
+| Interrupted work | Verified recovery |
+| --- | --- |
+| Confirmation committed, worker claimed, no HTTP submission yet | The original acknowledgment replays. A replacement worker reuses the merchant account, attempt, TranId, invoice, amount, currency, and synthetic input. |
+| Mock approval committed, response held | Restarting the mock retains that approval. Reclaiming the same attempt receives a duplicate and commits one UNKNOWN case, with one simulated effect. |
+| Result writes made, transaction not committed | SIGKILL rolls back attempt state, intent revision, financial history, reconciliation, and webhook work together. Lease recovery uses the same identity. Both definite and unknown result paths are exercised. |
+| Result transaction committed | API, worker, and mock restart preserve the exact financial records and acknowledgment. Further polling leaves completed work unchanged. A stored decline remains final even when another same-ID request selects an approval fixture. |
+
+Two workers started together have one claim winner. Recovery increments the work execution count, not the financial attempt number, and completion clears the token, worker, and lease. The tests also hold an older HTTP request live while a replacement worker reclaims its work. An actual late reply appends an observation in three separate cases: the replacement still owns a live claim on a PROCESSING payment, duplicate recovery has committed UNKNOWN, and the replacement has committed a definite result. None lets the older worker change current financial records or create another webhook.
+
+The overlap tests advance only the injected scheduling clock. Their real HTTP deadline remains 5 seconds and the configured lease remains 10 seconds. Validated test-process IPC controls startup and the post-claim checkpoint outside the transaction; the existing pre-commit checkpoint holds the result transaction for crash tests. No test edits stored claims or replaces fetch. The production entrypoint uses the ordinary clock and no checkpoints. This verifies fencing during a live overlap without claiming that a hard-aborted fetch can later deliver evidence.
+
+A separate timeout test holds the request before mock acceptance. Paybridge commits UNKNOWN while the ledger is empty and rejects a new confirmation. Releasing that already sent request later records an approval in the mock. The read-only mock inspector exports the actual final evidence; Paybridge remains UNKNOWN with no invented response observation. Investigation is required even after the evidence appears. Runtime workers never open the mock database.
 
 ## Verification
 
 `bun run test tests/provider` runs real API, worker, and mock processes with separate SQLite files. It covers both merchant accounts, exact wire amounts and IDs, approval/decline/incomplete/unknown outcomes, duplicate ambiguity, original acknowledgment replay, stale confirmation rejection, deliberate retries, immutable inputs, result rollback, observation-only history, and migration of an already accepted attempt. A test-only HTTP proxy forwards actual mock requests and alters the returned response to exercise malformed XML, streaming byte limits, deadlines, media types, and redirects. No application route accepts a fabricated payment result.
+
+`bun run test tests/payments tests/provider tests/recovery tests/mock-fourcs` also includes command rollback and lost-acknowledgment crashes. Database inspection in these tests is independent evidence at the approved test boundary. The mock's durable deduplication and final outcomes are simulation assumptions, not established live 4Cs guarantees.
 
 The reconciliation migration adds a new table and constraints without rebuilding payment tables. Unique attempt ownership, case identity, allowed states, and record retention are enforced in SQLite. Earlier attempt, event, acknowledgment, financial-input, and webhook-payload constraints remain active.

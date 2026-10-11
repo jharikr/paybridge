@@ -1,0 +1,70 @@
+// use prisma-8
+
+model Merchant {
+  id String @id
+  name String
+  providerAccountRef String @unique @map("provider_account_ref")
+  apiKeyHash String @unique @map("api_key_hash")
+  webhookUrl String @map("webhook_url")
+  webhookSecret String @map("webhook_secret")
+  returnOrigin String @map("return_origin")
+  isActive Int @map("is_active")
+  createdAt String @map("created_at")
+  payments PaymentIntent[]
+  commands Command[]
+  @@map("merchants")
+}
+
+model PaymentIntent {
+  id String @id
+  merchantId String @map("merchant_id")
+  merchantReference String @map("merchant_reference")
+  amount Int
+  currency String
+  description String?
+  returnUrl String @map("return_url")
+  status String
+  revision Int
+  providerInvoice String @unique @map("provider_invoice")
+  checkoutTokenHash String @map("checkout_token_hash")
+  createdAt String @map("created_at")
+  updatedAt String @map("updated_at")
+  merchant Merchant @relation(fields: [merchantId], references: [id])
+  events PaymentEvent[]
+  @@unique([id, merchantId])
+  @@map("payment_intents")
+}
+
+model Command {
+  merchantId String @map("merchant_id")
+  key String
+  operation String
+  requestHash String @map("request_hash")
+  status String
+  resourceId String? @map("resource_id")
+  paymentAttemptId String? @map("payment_attempt_id")
+  responseStatus Int? @map("response_status")
+  responseBody String? @map("response_body")
+  responseHeaders String? @map("response_headers")
+  createdAt String @map("created_at")
+  completedAt String? @map("completed_at")
+  merchant Merchant @relation(fields: [merchantId], references: [id])
+  @@id([merchantId, key])
+  @@map("idempotency_keys")
+}
+
+model PaymentEvent {
+  id String @id
+  paymentIntentId String @map("payment_intent_id")
+  paymentAttemptId String? @map("payment_attempt_id")
+  type String
+  fromStatus String? @map("from_status")
+  toStatus String? @map("to_status")
+  intentRevision Int @map("intent_revision")
+  actorType String @map("actor_type")
+  actorId String @map("actor_id")
+  metadata String
+  createdAt String @map("created_at")
+  payment PaymentIntent @relation(fields: [paymentIntentId], references: [id])
+  @@map("payment_events")
+}

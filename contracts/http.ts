@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { ServerResponse } from "node:http";
 import { type, type Type } from "arktype";
 import Fastify from "fastify";
-import swagger from "@fastify/swagger";
+import swagger, { type FastifyDynamicSwaggerOptions } from "@fastify/swagger";
 
 export const errorResponse = type({
   error: {
@@ -39,7 +39,13 @@ function rejectRouterRequest({
   response.end(JSON.stringify(invalidRequest({ requestId: newRequestId() })));
 }
 
-export async function createHttpApp({ title }: { title: string }) {
+export async function createHttpApp({
+  title,
+  openapi,
+}: {
+  title: string;
+  openapi?: FastifyDynamicSwaggerOptions["openapi"];
+}) {
   const validators = new Map<string, Type>();
   const schemaIdentity = type({ $id: "string" });
   const app = Fastify({
@@ -106,7 +112,11 @@ export async function createHttpApp({ title }: { title: string }) {
     });
   });
   await app.register(swagger, {
-    openapi: { openapi: "3.1.0", info: { title, version: "0.1.0" } },
+    openapi: {
+      ...openapi,
+      openapi: "3.1.0",
+      info: { title, version: "0.1.0" },
+    },
   });
   return { app, requestSchema };
 }

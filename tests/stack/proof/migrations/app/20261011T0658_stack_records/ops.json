@@ -1,0 +1,30 @@
+[
+  {
+    "id": "table.proof_records",
+    "label": "Create bounded proof records",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "table",
+        "name": "proof_records"
+      }
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create proof records with a positive safe integer check",
+        "sql": "CREATE TABLE proof_records (\n            id TEXT NOT NULL PRIMARY KEY,\n            label TEXT NOT NULL,\n            amount INTEGER NOT NULL CHECK (typeof(amount) = 'integer' AND amount BETWEEN 1 AND 9007199254740991)\n          )",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify proof records",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = 'table' AND name = 'proof_records'",
+        "params": []
+      }
+    ]
+  }
+]

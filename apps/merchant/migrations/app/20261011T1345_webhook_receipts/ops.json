@@ -1,0 +1,253 @@
+[
+  {
+    "id": "table.webhook_inbox",
+    "label": "Create webhook inbox",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "table",
+        "name": "webhook_inbox"
+      }
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create authenticated receipt storage",
+        "params": [],
+        "sql": "CREATE TABLE webhook_inbox (\n        event_id TEXT PRIMARY KEY NOT NULL,\n        receiving_merchant_id TEXT NOT NULL REFERENCES merchant_contexts(id),\n        payment_intent_id TEXT NOT NULL,\n        event_type TEXT NOT NULL CHECK(event_type IN ('payment.succeeded','payment.failed','payment.unknown','payment.cancelled')),\n        revision INTEGER NOT NULL CHECK(typeof(revision)='integer' AND revision BETWEEN 1 AND 9007199254740991),\n        payload TEXT NOT NULL CHECK(json_valid(payload) AND length(CAST(payload AS BLOB)) BETWEEN 1 AND 16384),\n        payload_hash TEXT NOT NULL CHECK(length(payload_hash)=64 AND payload_hash NOT GLOB '*[^a-f0-9]*'),\n        status TEXT NOT NULL CHECK(status IN ('PENDING','PROCESSING','PROCESSED')),\n        attempt_count INTEGER NOT NULL CHECK(typeof(attempt_count)='integer' AND attempt_count>=0),\n        next_attempt_at TEXT NOT NULL,\n        last_error TEXT CHECK(last_error IS NULL OR length(last_error)<=128),\n        received_at TEXT NOT NULL,\n        processed_at TEXT,\n        claim_token TEXT,\n        locked_by TEXT,\n        lease_expires_at TEXT,\n        CHECK ((status='PROCESSING' AND claim_token IS NOT NULL AND locked_by IS NOT NULL AND lease_expires_at IS NOT NULL) OR (status!='PROCESSING' AND claim_token IS NULL AND locked_by IS NULL AND lease_expires_at IS NULL)),\n        CHECK ((status='PROCESSED' AND processed_at IS NOT NULL) OR (status!='PROCESSED' AND processed_at IS NULL)),\n        CHECK (json_extract(payload,'$.id') IS event_id AND json_extract(payload,'$.data.paymentIntentId') IS payment_intent_id AND json_extract(payload,'$.type') IS event_type AND json_extract(payload,'$.data.revision') IS revision)\n      )"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify receipt table",
+        "sql": "SELECT COUNT(*)=1 AS result FROM sqlite_master WHERE type='table' AND name='webhook_inbox'",
+        "params": []
+      }
+    ]
+  },
+  {
+    "id": "index.webhook_inbox.webhook_inbox_receiving_merchant_id_idx_0e4c83ef",
+    "label": "Create index webhook_inbox_receiving_merchant_id_idx_0e4c83ef on webhook_inbox",
+    "summary": "Creates index webhook_inbox_receiving_merchant_id_idx_0e4c83ef on webhook_inbox",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "index",
+        "name": "webhook_inbox_receiving_merchant_id_idx_0e4c83ef",
+        "table": "webhook_inbox"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"webhook_inbox_receiving_merchant_id_idx_0e4c83ef\" is missing",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "webhook_inbox_receiving_merchant_id_idx_0e4c83ef"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"webhook_inbox_receiving_merchant_id_idx_0e4c83ef\"",
+        "sql": "CREATE INDEX \"webhook_inbox_receiving_merchant_id_idx_0e4c83ef\" ON \"webhook_inbox\" (\"receiving_merchant_id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"webhook_inbox_receiving_merchant_id_idx_0e4c83ef\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "webhook_inbox_receiving_merchant_id_idx_0e4c83ef"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.webhook_inbox.webhook_inbox_status_lease_expires_at_idx_7b34d2bd",
+    "label": "Create index webhook_inbox_status_lease_expires_at_idx_7b34d2bd on webhook_inbox",
+    "summary": "Creates index webhook_inbox_status_lease_expires_at_idx_7b34d2bd on webhook_inbox",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "index",
+        "name": "webhook_inbox_status_lease_expires_at_idx_7b34d2bd",
+        "table": "webhook_inbox"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"webhook_inbox_status_lease_expires_at_idx_7b34d2bd\" is missing",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "webhook_inbox_status_lease_expires_at_idx_7b34d2bd"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"webhook_inbox_status_lease_expires_at_idx_7b34d2bd\"",
+        "sql": "CREATE INDEX \"webhook_inbox_status_lease_expires_at_idx_7b34d2bd\" ON \"webhook_inbox\" (\"status\", \"lease_expires_at\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"webhook_inbox_status_lease_expires_at_idx_7b34d2bd\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "webhook_inbox_status_lease_expires_at_idx_7b34d2bd"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.webhook_inbox.webhook_inbox_status_next_attempt_at_idx_139f8e47",
+    "label": "Create index webhook_inbox_status_next_attempt_at_idx_139f8e47 on webhook_inbox",
+    "summary": "Creates index webhook_inbox_status_next_attempt_at_idx_139f8e47 on webhook_inbox",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "index",
+        "name": "webhook_inbox_status_next_attempt_at_idx_139f8e47",
+        "table": "webhook_inbox"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"webhook_inbox_status_next_attempt_at_idx_139f8e47\" is missing",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "webhook_inbox_status_next_attempt_at_idx_139f8e47"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"webhook_inbox_status_next_attempt_at_idx_139f8e47\"",
+        "sql": "CREATE INDEX \"webhook_inbox_status_next_attempt_at_idx_139f8e47\" ON \"webhook_inbox\" (\"status\", \"next_attempt_at\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"webhook_inbox_status_next_attempt_at_idx_139f8e47\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "webhook_inbox_status_next_attempt_at_idx_139f8e47"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "trigger.webhook_receipt_fixed",
+    "label": "Create webhook_receipt_fixed",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create webhook_receipt_fixed",
+        "sql": "CREATE TRIGGER webhook_receipt_fixed BEFORE UPDATE ON webhook_inbox WHEN NEW.event_id IS NOT OLD.event_id OR NEW.receiving_merchant_id IS NOT OLD.receiving_merchant_id OR NEW.payment_intent_id IS NOT OLD.payment_intent_id OR NEW.event_type IS NOT OLD.event_type OR NEW.revision IS NOT OLD.revision OR NEW.payload IS NOT OLD.payload OR NEW.payload_hash IS NOT OLD.payload_hash OR NEW.received_at IS NOT OLD.received_at BEGIN SELECT RAISE(ABORT,'webhook_receipt_fixed'); END",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify webhook_receipt_fixed",
+        "sql": "SELECT COUNT(*)=1 AS result FROM sqlite_master WHERE type='trigger' AND name=?",
+        "params": [
+          "webhook_receipt_fixed"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "trigger.webhook_receipt_retained",
+    "label": "Create webhook_receipt_retained",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create webhook_receipt_retained",
+        "sql": "CREATE TRIGGER webhook_receipt_retained BEFORE DELETE ON webhook_inbox BEGIN SELECT RAISE(ABORT,'webhook_receipt_retained'); END",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify webhook_receipt_retained",
+        "sql": "SELECT COUNT(*)=1 AS result FROM sqlite_master WHERE type='trigger' AND name=?",
+        "params": [
+          "webhook_receipt_retained"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "trigger.webhook_processed_fixed",
+    "label": "Create webhook_processed_fixed",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create webhook_processed_fixed",
+        "sql": "CREATE TRIGGER webhook_processed_fixed BEFORE UPDATE ON webhook_inbox WHEN OLD.status='PROCESSED' BEGIN SELECT RAISE(ABORT,'webhook_processed_fixed'); END",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify webhook_processed_fixed",
+        "sql": "SELECT COUNT(*)=1 AS result FROM sqlite_master WHERE type='trigger' AND name=?",
+        "params": [
+          "webhook_processed_fixed"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "trigger.webhook_receipt_attempts_monotonic",
+    "label": "Create webhook_receipt_attempts_monotonic",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create webhook_receipt_attempts_monotonic",
+        "sql": "CREATE TRIGGER webhook_receipt_attempts_monotonic BEFORE UPDATE ON webhook_inbox WHEN NEW.attempt_count<OLD.attempt_count BEGIN SELECT RAISE(ABORT,'webhook_receipt_attempts_monotonic'); END",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify webhook_receipt_attempts_monotonic",
+        "sql": "SELECT COUNT(*)=1 AS result FROM sqlite_master WHERE type='trigger' AND name=?",
+        "params": [
+          "webhook_receipt_attempts_monotonic"
+        ]
+      }
+    ]
+  }
+]

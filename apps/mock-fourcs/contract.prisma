@@ -1,0 +1,20 @@
+// use prisma-8
+
+model MockTransaction {
+  id String @id
+  providerAccount String @map("provider_account")
+  tranId String @map("tran_id")
+  invoice String
+  amountMinor Int @map("amount_minor")
+  currency String
+  paymentMethodRef String @map("payment_method_ref")
+  requestFingerprint String @map("request_fingerprint")
+  finalOutcome String @map("final_outcome")
+  effectCount Int @map("effect_count")
+  hostReference String @map("host_reference")
+  approvalCode String? @map("approval_code")
+  acceptedAt String @map("accepted_at")
+
+  @@unique([providerAccount, tranId])
+  @@map("mock_transactions")
+}

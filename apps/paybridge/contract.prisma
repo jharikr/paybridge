@@ -1,0 +1,170 @@
+// use prisma-8
+
+model Merchant {
+  id String @id
+  name String
+  providerAccountRef String @unique @map("provider_account_ref")
+  apiKeyHash String @unique @map("api_key_hash")
+  webhookUrl String @map("webhook_url")
+  webhookSecret String @map("webhook_secret")
+  returnOrigin String @map("return_origin")
+  isActive Int @map("is_active")
+  createdAt String @map("created_at")
+  payments PaymentIntent[]
+  commands Command[]
+  webhookWork WebhookOutbox[]
+  @@map("merchants")
+}
+
+model PaymentIntent {
+  id String @id
+  merchantId String @map("merchant_id")
+  merchantReference String @map("merchant_reference")
+  amount Int
+  currency String
+  description String?
+  returnUrl String @map("return_url")
+  status String
+  revision Int
+  providerInvoice String @unique @map("provider_invoice")
+  checkoutTokenHash String @map("checkout_token_hash")
+  createdAt String @map("created_at")
+  updatedAt String @map("updated_at")
+  merchant Merchant @relation(fields: [merchantId], references: [id], index: false)
+  events PaymentEvent[]
+  attempts PaymentAttempt[]
+  webhookWork WebhookOutbox[]
+  @@unique([id, merchantId])
+  reconciliations Reconciliation[]
+  @@index([merchantId, merchantReference])
+  @@index([merchantId, status])
+  @@index([createdAt])
+  @@map("payment_intents")
+}
+
+model Command {
+  merchantId String @map("merchant_id")
+  key String
+  operation String
+  requestHash String @map("request_hash")
+  status String
+  resourceId String? @map("resource_id")
+  paymentAttemptId String? @map("payment_attempt_id")
+  responseStatus Int? @map("response_status")
+  responseBody String? @map("response_body")
+  responseHeaders String? @map("response_headers")
+  createdAt String @map("created_at")
+  completedAt String? @map("completed_at")
+  merchant Merchant @relation(fields: [merchantId], references: [id], index: false)
+  @@id([merchantId, key])
+  @@map("idempotency_keys")
+}
+
+model PaymentEvent {
+  id String @id
+  paymentIntentId String @map("payment_intent_id")
+  paymentAttemptId String? @map("payment_attempt_id")
+  type String
+  fromStatus String? @map("from_status")
+  toStatus String? @map("to_status")
+  intentRevision Int @map("intent_revision")
+  actorType String @map("actor_type")
+  actorId String @map("actor_id")
+  metadata String
+  createdAt String @map("created_at")
+  payment PaymentIntent @relation(fields: [paymentIntentId], references: [id], index: false)
+  webhookWork WebhookOutbox[]
+  @@index([paymentIntentId, createdAt])
+  @@map("payment_events")
+}
+
+
+model PaymentAttempt {
+  id String @id
+  paymentIntentId String @map("payment_intent_id")
+  attemptNumber Int @map("attempt_number")
+  provider String
+  providerAccountRef String @map("provider_account_ref")
+  providerTransactionId String @map("provider_transaction_id")
+  providerHostReference String? @map("provider_host_reference")
+  status String
+  providerOperationResult String? @map("provider_operation_result")
+  providerServiceResult String? @map("provider_service_result")
+  providerFinancialResult String? @map("provider_financial_result")
+  mockPaymentMethodRef String @map("mock_payment_method_ref")
+  failureCode String? @map("failure_code")
+  failureMessage String? @map("failure_message")
+  createdAt String @map("created_at")
+  updatedAt String @map("updated_at")
+  payment PaymentIntent @relation(fields: [paymentIntentId], references: [id], index: false)
+  providerWork ProviderOutbox[]
+  reconciliations Reconciliation[]
+  @@unique([paymentIntentId, attemptNumber])
+  @@unique([provider, providerTransactionId])
+  @@map("payment_attempts")
+}
+
+model ProviderOutbox {
+  id String @id
+  paymentAttemptId String @unique @map("payment_attempt_id")
+  status String
+  attemptCount Int @map("attempt_count")
+  nextAttemptAt String @map("next_attempt_at")
+  lastError String? @map("last_error")
+  createdAt String @map("created_at")
+  updatedAt String @map("updated_at")
+  completedAt String? @map("completed_at")
+  claimToken String? @map("claim_token")
+  lockedBy String? @map("locked_by")
+  leaseExpiresAt String? @map("lease_expires_at")
+  attempt PaymentAttempt @relation(fields: [paymentAttemptId], references: [id])
+  @@index([status, nextAttemptAt])
+  @@index([status, leaseExpiresAt])
+  @@map("provider_outbox")
+}
+
+model WebhookOutbox {
+  id String @id
+  paymentEventId String @unique @map("payment_event_id")
+  merchantId String @map("merchant_id")
+  paymentIntentId String @map("payment_intent_id")
+  eventType String @map("event_type")
+  payload String
+  status String
+  attemptCount Int @map("attempt_count")
+  nextAttemptAt String @map("next_attempt_at")
+  lastError String? @map("last_error")
+  createdAt String @map("created_at")
+  deliveredAt String? @map("delivered_at")
+  claimToken String? @map("claim_token")
+  lockedBy String? @map("locked_by")
+  leaseExpiresAt String? @map("lease_expires_at")
+  merchant Merchant @relation(fields: [merchantId], references: [id], index: false)
+  payment PaymentIntent @relation(fields: [paymentIntentId], references: [id])
+  event PaymentEvent @relation(fields: [paymentEventId], references: [id])
+  @@index([status, nextAttemptAt])
+  @@index([status, leaseExpiresAt])
+  @@index([merchantId, createdAt])
+  @@map("webhook_outbox")
+}
+
+model Reconciliation {
+  id String @id
+  paymentIntentId String @map("payment_intent_id")
+  paymentAttemptId String @unique @map("payment_attempt_id")
+  status String
+  resolution String?
+  reason String
+  notes String?
+  evidenceReference String? @map("evidence_reference")
+  evidence String?
+  startedBy String? @map("started_by")
+  resolvedBy String? @map("resolved_by")
+  createdAt String @map("created_at")
+  startedAt String? @map("started_at")
+  resolvedAt String? @map("resolved_at")
+  payment PaymentIntent @relation(fields: [paymentIntentId], references: [id])
+  attempt PaymentAttempt @relation(fields: [paymentAttemptId], references: [id])
+  @@index([status, createdAt])
+  @@map("reconciliations")
+}

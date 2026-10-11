@@ -1,0 +1,43 @@
+[
+  {
+    "id": "index.reconciliations.reconciliations_status_created_at_idx_1bbe8adf",
+    "label": "Create index reconciliations_status_created_at_idx_1bbe8adf on reconciliations",
+    "summary": "Creates index reconciliations_status_created_at_idx_1bbe8adf on reconciliations",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "index",
+        "name": "reconciliations_status_created_at_idx_1bbe8adf",
+        "table": "reconciliations"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"reconciliations_status_created_at_idx_1bbe8adf\" is missing",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "reconciliations_status_created_at_idx_1bbe8adf"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"reconciliations_status_created_at_idx_1bbe8adf\"",
+        "sql": "CREATE INDEX \"reconciliations_status_created_at_idx_1bbe8adf\" ON \"reconciliations\" (\"status\", \"created_at\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"reconciliations_status_created_at_idx_1bbe8adf\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "reconciliations_status_created_at_idx_1bbe8adf"
+        ]
+      }
+    ]
+  }
+]

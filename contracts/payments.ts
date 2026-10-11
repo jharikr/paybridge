@@ -12,7 +12,7 @@ export const paymentStatus = type(
 const storedText = type(
   /^(?:[^\u0000\uD800-\uDFFF]|[\uD800-\uDBFF][\uDC00-\uDFFF])*$/,
 );
-const boundedText = (limit: number) =>
+export const boundedText = (limit: number) =>
   storedText
     .atLeastLength(1)
     .atMostLength(limit)

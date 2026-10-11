@@ -2211,6 +2211,15 @@
                   "name": "reconciliations_payment_intent_id_idx_2dc6a9d2",
                   "prefix": "reconciliations_payment_intent_id_idx",
                   "unique": false
+                },
+                {
+                  "columns": [
+                    "status",
+                    "created_at"
+                  ],
+                  "name": "reconciliations_status_created_at_idx_1bbe8adf",
+                  "prefix": "reconciliations_status_created_at_idx",
+                  "unique": false
                 }
               ],
               "primaryKey": {
@@ -2390,7 +2399,7 @@
         "id": "__unbound__"
       }
     },
-    "storageHash": "b81791e37db9f73e826b73c7def36cc02f1057bb1ba5ead750406228108cbb06"
+    "storageHash": "9fbd3da4a17aaa43793ef7162f950da73dae1a48622c73cdf1385c6b1baf95e1"
   },
   "capabilities": {
     "sql": {

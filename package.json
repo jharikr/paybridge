@@ -7,7 +7,7 @@
     "node": ">=26.8.1 <27"
   },
   "scripts": {
-    "test": "vitest run",
+    "test": "vitest run --maxWorkers=4",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

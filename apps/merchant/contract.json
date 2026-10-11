@@ -19,6 +19,10 @@
     "orders": {
       "model": "Order",
       "namespace": "__unbound__"
+    },
+    "webhook_inbox": {
+      "model": "WebhookInbox",
+      "namespace": "__unbound__"
     }
   },
   "domain": {
@@ -237,6 +241,21 @@
                 },
                 "to": {
                   "model": "Order",
+                  "namespace": "__unbound__"
+                }
+              },
+              "receipts": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "receivingMerchantId"
+                  ]
+                },
+                "to": {
+                  "model": "WebhookInbox",
                   "namespace": "__unbound__"
                 }
               }
@@ -524,6 +543,194 @@
               },
               "namespaceId": "__unbound__",
               "table": "orders"
+            }
+          },
+          "WebhookInbox": {
+            "fields": {
+              "attemptCount": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/integer@1",
+                  "kind": "scalar"
+                }
+              },
+              "claimToken": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "eventId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "eventType": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "lastError": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "leaseExpiresAt": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "lockedBy": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "nextAttemptAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "payload": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "payloadHash": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "paymentIntentId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "processedAt": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "receivedAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "receivingMerchantId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "revision": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/integer@1",
+                  "kind": "scalar"
+                }
+              },
+              "status": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {
+              "merchant": {
+                "cardinality": "N:1",
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "receivingMerchantId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "MerchantContext",
+                  "namespace": "__unbound__"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "attemptCount": {
+                  "column": "attempt_count"
+                },
+                "claimToken": {
+                  "column": "claim_token"
+                },
+                "eventId": {
+                  "column": "event_id"
+                },
+                "eventType": {
+                  "column": "event_type"
+                },
+                "lastError": {
+                  "column": "last_error"
+                },
+                "leaseExpiresAt": {
+                  "column": "lease_expires_at"
+                },
+                "lockedBy": {
+                  "column": "locked_by"
+                },
+                "nextAttemptAt": {
+                  "column": "next_attempt_at"
+                },
+                "payload": {
+                  "column": "payload"
+                },
+                "payloadHash": {
+                  "column": "payload_hash"
+                },
+                "paymentIntentId": {
+                  "column": "payment_intent_id"
+                },
+                "processedAt": {
+                  "column": "processed_at"
+                },
+                "receivedAt": {
+                  "column": "received_at"
+                },
+                "receivingMerchantId": {
+                  "column": "receiving_merchant_id"
+                },
+                "revision": {
+                  "column": "revision"
+                },
+                "status": {
+                  "column": "status"
+                }
+              },
+              "namespaceId": "__unbound__",
+              "table": "webhook_inbox"
             }
           }
         }
@@ -872,13 +1079,149 @@
                   ]
                 }
               ]
+            },
+            "webhook_inbox": {
+              "columns": {
+                "attempt_count": {
+                  "codecId": "sqlite/integer@1",
+                  "dataType": "sqlite/integer",
+                  "nullable": false
+                },
+                "claim_token": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": true
+                },
+                "event_id": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": false
+                },
+                "event_type": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": false
+                },
+                "last_error": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": true
+                },
+                "lease_expires_at": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": true
+                },
+                "locked_by": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": true
+                },
+                "next_attempt_at": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": false
+                },
+                "payload": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": false
+                },
+                "payload_hash": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": false
+                },
+                "payment_intent_id": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": false
+                },
+                "processed_at": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": true
+                },
+                "received_at": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": false
+                },
+                "receiving_merchant_id": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": false
+                },
+                "revision": {
+                  "codecId": "sqlite/integer@1",
+                  "dataType": "sqlite/integer",
+                  "nullable": false
+                },
+                "status": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [
+                {
+                  "source": {
+                    "columns": [
+                      "receiving_merchant_id"
+                    ],
+                    "namespaceId": "__unbound__",
+                    "tableName": "webhook_inbox"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "__unbound__",
+                    "tableName": "merchant_contexts"
+                  }
+                }
+              ],
+              "indexes": [
+                {
+                  "columns": [
+                    "receiving_merchant_id"
+                  ],
+                  "name": "webhook_inbox_receiving_merchant_id_idx_0e4c83ef",
+                  "prefix": "webhook_inbox_receiving_merchant_id_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "status",
+                    "lease_expires_at"
+                  ],
+                  "name": "webhook_inbox_status_lease_expires_at_idx_7b34d2bd",
+                  "prefix": "webhook_inbox_status_lease_expires_at_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "status",
+                    "next_attempt_at"
+                  ],
+                  "name": "webhook_inbox_status_next_attempt_at_idx_139f8e47",
+                  "prefix": "webhook_inbox_status_next_attempt_at_idx",
+                  "unique": false
+                }
+              ],
+              "primaryKey": {
+                "columns": [
+                  "event_id"
+                ]
+              },
+              "uniques": []
             }
           }
         },
         "id": "__unbound__"
       }
     },
-    "storageHash": "5124c0135cca8451f39c2883931e44372af72eae8562378e2b8e15607d3e44ad"
+    "storageHash": "1032b12551e45942d46663a44528d8c8b63d2198aeee523eeea330c6af95a54e"
   },
   "capabilities": {
     "sql": {

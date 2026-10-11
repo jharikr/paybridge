@@ -12,3 +12,9 @@ export function merchantContext(value: unknown) {
   return { id: parsed, credential: credentials[parsed] };
 }
 export type MerchantContext = NonNullable<ReturnType<typeof merchantContext>>;
+
+export function webhookSecret(merchant: MerchantFixture) {
+  return merchant === "merchant-a"
+    ? "mock-webhook-secret-a"
+    : "mock-webhook-secret-b";
+}

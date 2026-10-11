@@ -10,7 +10,7 @@ node apps/merchant/server.ts .data/merchant.db 3101 http://127.0.0.1:3100 http:/
 
 The arguments are database path, listening port, Paybridge origin, and advertised merchant origin. Defaults match the command above. Port `0` chooses an ephemeral listening port for tests. Advertised origins are explicit because Paybridge's allowed return origin and registered webhook destination must match them. Seeded configuration remains fixed for the lifetime of the records. Starting a process never resets its database.
 
-The contexts are `merchant-a` and `merchant-b`, with synthetic Paybridge credentials `mock-paybridge-key-a` and `mock-paybridge-key-b`. Return destinations are `/{merchantFixture}/payment-return`; registered callbacks are `/api/webhooks/paybridge/{merchantFixture}`. The return handler verifies the bound order; ticket 10 adds callback receipt. Fixture routes select a local demo context; they are not merchant login or production authentication.
+The contexts are `merchant-a` and `merchant-b`, with synthetic Paybridge credentials `mock-paybridge-key-a` and `mock-paybridge-key-b`. Return destinations are `/{merchantFixture}/payment-return`; registered callbacks are `/api/webhooks/paybridge/{merchantFixture}`. The return handler verifies the bound order. The callback authenticates and commits a durable receipt before 204. Fixture routes select a local demo context; they are not merchant login or production authentication.
 
 ## HTTP flow
 
@@ -58,6 +58,8 @@ Payment bindings start with a null local snapshot and applied revision 0. Acknow
 Lookup and return use this operation. Return refreshes PENDING, PROCESSING, UNKNOWN, and FAILED through Paybridge HTTP; FAILED can legitimately advance to PROCESSING after a deliberate retry. SUCCEEDED and CANCELLED can use the retained final local snapshot. A return query never supplies financial facts or creates a binding. The result contains only facts common to lookup and notifications, without invented attempt details or timestamps. The ordinary payment lookup still returns the full received Paybridge response, while a delayed response cannot regress the locally accepted revision. External fulfillment is out of scope.
 
 ## Verification
+
+The [webhook receiver](../../docs/webhook-delivery.md) verifies exact signed UTF-8 bytes with the destination's secret and a configurable timestamp window. It stores early receipts without requiring a payment binding. Identical redelivery acknowledges the original receipt; changed bytes or receiving context conflict. Receipts remain PENDING until ticket 11 adds consumption through the shared snapshot transaction.
 
 The merchant tests launch real Node APIs and provider workers with separate synthetic databases. They inspect independently persisted records and mock effects. Cases cover both merchants sharing a reference, ownership substitution, strict payloads, OpenAPI, immutable constraints, declined-then-approved attempts, cancelled/unknown binding retention, stale commands, concurrent processes, bounded contention, and local completion rollback.
 

@@ -19,6 +19,13 @@ const merchantOrigin = serviceOrigin(
 await mkdir(dirname(path), { recursive: true });
 const db = await openMerchantDatabase({ path });
 await seedContexts({ db, origin: merchantOrigin });
-const app = await createMerchantApp({ db, paybridgeOrigin });
+const webhookToleranceSeconds = type("0 <= number.integer <= 3600").assert(
+  Number(process.env["WEBHOOK_TOLERANCE_SECONDS"] ?? 300),
+);
+const app = await createMerchantApp({
+  db,
+  paybridgeOrigin,
+  webhookToleranceSeconds,
+});
 const url = await app.listen({ host: "127.0.0.1", port });
 process.send?.({ kind: "ready", url });

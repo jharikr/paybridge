@@ -6,6 +6,7 @@ model MerchantContext {
   webhookUrl String @map("webhook_url")
   createdAt String @map("created_at")
   orders Order[]
+  receipts WebhookInbox[]
   @@map("merchant_contexts")
 }
 
@@ -61,4 +62,27 @@ model MerchantCommand {
   @@unique([merchantId, idempotencyKey])
   @@unique([merchantId, orderId, operation, commandNumber])
   @@map("merchant_commands")
+}
+
+model WebhookInbox {
+  eventId String @id @map("event_id")
+  receivingMerchantId String @map("receiving_merchant_id")
+  paymentIntentId String @map("payment_intent_id")
+  eventType String @map("event_type")
+  revision Int
+  payload String
+  payloadHash String @map("payload_hash")
+  status String
+  attemptCount Int @map("attempt_count")
+  nextAttemptAt String @map("next_attempt_at")
+  lastError String? @map("last_error")
+  receivedAt String @map("received_at")
+  processedAt String? @map("processed_at")
+  claimToken String? @map("claim_token")
+  lockedBy String? @map("locked_by")
+  leaseExpiresAt String? @map("lease_expires_at")
+  merchant MerchantContext @relation(fields: [receivingMerchantId], references: [id])
+  @@index([status, nextAttemptAt])
+  @@index([status, leaseExpiresAt])
+  @@map("webhook_inbox")
 }

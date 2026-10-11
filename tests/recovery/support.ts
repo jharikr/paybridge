@@ -80,7 +80,11 @@ export function records(path: string) {
     work: rows(path, "SELECT * FROM provider_outbox ORDER BY id"),
     cases: rows(path, "SELECT * FROM reconciliations ORDER BY id"),
     events: rows(path, "SELECT * FROM payment_events ORDER BY rowid"),
-    webhooks: rows(path, "SELECT * FROM webhook_outbox ORDER BY id"),
+    // Delivery bookkeeping can advance while the combined worker preserves these financial facts.
+    webhooks: rows(
+      path,
+      "SELECT id,payment_event_id,merchant_id,payment_intent_id,event_type,payload,created_at FROM webhook_outbox ORDER BY id",
+    ),
   };
 }
 export const mockGate = type({

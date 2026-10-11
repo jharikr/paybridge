@@ -10,7 +10,9 @@ node apps/paybridge/worker.ts .data/paybridge.db http://127.0.0.1:3102
 
 Each command runs in its own terminal. The worker opens only the Paybridge database and contacts the mock over HTTP. It never reads the mock ledger. Existing files migrate in place and retain payment records and acknowledgments.
 
-Worker arguments are database path, mock origin, HTTP timeout milliseconds, lease milliseconds, and poll milliseconds. Defaults are `.data/paybridge.db`, `http://127.0.0.1:3102`, `3000`, `10000`, and `250`. The timeout must be shorter than the lease. The origin accepts literal loopback HTTP addresses only, `127.0.0.1` or `[::1]`, without a path or credentials. Redirects are rejected. Live provider endpoints are outside this prototype.
+Worker arguments are database path, mock origin, HTTP timeout milliseconds, lease milliseconds, poll milliseconds, webhook retry base milliseconds and webhook retry cap milliseconds. Defaults are `.data/paybridge.db`, `http://127.0.0.1:3102`, `3000`, `10000`, `250`, `1000` and `60000`. The timeout must be shorter than the lease. The origin accepts literal loopback HTTP addresses only, `127.0.0.1` or `[::1]`, without a path or credentials. Redirects are rejected. Live provider endpoints are outside this prototype.
+
+The same process runs [webhook delivery](webhook-delivery.md) on a separate Node worker thread with its own database connection. This lets either loop commit while the installed synchronous SQLite driver waits on a lock in the other thread. SIGTERM and SIGINT stop both loops and close both connections after bounded in-flight work. An unexpected delivery-thread exit fails the process and stops provider work; unfinished claims remain recoverable.
 
 The loop atomically claims due PENDING work or expired PROCESSING work with a new token and worker identity. It starts the lease clock after obtaining SQLite write access and commits before HTTP. After commit, it checks that the remaining lease exceeds the HTTP timeout. A claim exhausted by commit contention is left for lease recovery without sending a request. Every execution uses the persisted account, invoice, transaction ID, amount, currency, and synthetic reference. Reclaiming work does not create a payment attempt or choose another transaction ID. SIGTERM and SIGINT stop new claims, allow the bounded in-flight operation to finish, and close the worker's database connection. A killed process leaves its unfinished lease available for recovery.
 
@@ -30,7 +32,7 @@ Only matching invoice, transaction ID, amount, and currency with outer OK, servi
 | DuplicateTransaction | UNKNOWN. Matching echoes do not prove the earlier financial outcome. |
 | Timeout, lost reply, invalid HTTP/XML, mismatched echoes, invalid result layers | UNKNOWN. |
 
-One result transaction updates the attempt and intent, increments the revision, completes provider work and clears its claim, appends a financial event, and stores its exact webhook payload. UNKNOWN also creates one REQUIRED reconciliation case in that transaction. Any failure rolls back all those writes. Webhook delivery is separate work; this ticket only persists it.
+One result transaction updates the attempt and intent, increments the revision, completes provider work and clears its claim, appends a financial event, and stores its exact webhook payload. UNKNOWN also creates one REQUIRED reconciliation case in that transaction. Any failure rolls back all those writes. Webhook delivery claims that stored work independently and never repeats the financial submission.
 
 UNKNOWN completes automatic financial submission. Lookup never contacts the provider. A new attempt remains blocked until manual reconciliation establishes definite failure. The provider repeat operation is not used. Creation and confirmation replays retain their original acknowledgments, while lookup and financial events carry the current state and revision.
 

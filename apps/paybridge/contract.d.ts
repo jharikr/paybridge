@@ -17,7 +17,7 @@ import type {
 } from '@prisma/orm-sqlite/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'9fbd3da4a17aaa43793ef7162f950da73dae1a48622c73cdf1385c6b1baf95e1'>;
+  StorageHashBase<'d5ae02ff34d91917746b2e5234ed309301094356de0c4b79b857da2b3d90e0d8'>;
 export type ExecutionHash = ExecutionHashBase<string>;
 export type ProfileHash =
   ProfileHashBase<'260b8608d1aacaf1f690779a6cff39a12947c599597c5ba464ca75b9e775df53'>;
@@ -1626,6 +1626,12 @@ type ContractBase = Omit<
               uniques: readonly [{ readonly columns: readonly ['payment_event_id'] }];
               indexes: readonly [
                 {
+                  readonly name: 'webhook_outbox_merchant_id_created_at_idx_515bf5d4';
+                  readonly prefix: 'webhook_outbox_merchant_id_created_at_idx';
+                  readonly columns: readonly ['merchant_id', 'created_at'];
+                  readonly unique: false;
+                },
+                {
                   readonly name: 'webhook_outbox_merchant_id_idx_92be5ce7';
                   readonly prefix: 'webhook_outbox_merchant_id_idx';
                   readonly columns: readonly ['merchant_id'];
@@ -1635,6 +1641,18 @@ type ContractBase = Omit<
                   readonly name: 'webhook_outbox_payment_intent_id_idx_2dc6a9d2';
                   readonly prefix: 'webhook_outbox_payment_intent_id_idx';
                   readonly columns: readonly ['payment_intent_id'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'webhook_outbox_status_lease_expires_at_idx_7b34d2bd';
+                  readonly prefix: 'webhook_outbox_status_lease_expires_at_idx';
+                  readonly columns: readonly ['status', 'lease_expires_at'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'webhook_outbox_status_next_attempt_at_idx_139f8e47';
+                  readonly prefix: 'webhook_outbox_status_next_attempt_at_idx';
+                  readonly columns: readonly ['status', 'next_attempt_at'];
                   readonly unique: false;
                 },
               ];

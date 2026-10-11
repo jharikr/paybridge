@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
 import { type } from "arktype";
 import { isolatedDatabases } from "../support/databases.ts";
+import { contractAt, compareResponse } from "../contracts/support.ts";
 import { journey, rows } from "../provider/support.ts";
 import {
   checkpoint,
@@ -118,6 +119,14 @@ test(
       expect(contended.status).toBe(503);
       expect(contended.headers.get("retry-after")).toBe("1");
       expect(performance.now() - started).toBeLessThan(8000);
+      await compareResponse({
+        contract: await contractAt(second.url),
+        path: "/{merchantFixture}/orders/{orderId}/payment",
+        method: "post",
+        response: contended.clone(),
+        status: 503,
+        headers: ["cache-control", "x-content-type-options", "retry-after"],
+      });
       const document = type({
         paths: { "[string]": { "[string]": "unknown" } },
       }).assert(await (await fetch(`${second.url}/openapi.json`)).json());

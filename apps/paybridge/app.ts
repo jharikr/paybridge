@@ -1,5 +1,6 @@
 import { type } from "arktype";
 import { createHttpApp, errorResponse } from "../../contracts/http.ts";
+import { registerOpenApi } from "../../contracts/openapi.ts";
 import {
   commandKey,
   createPaymentInput,
@@ -422,7 +423,7 @@ export async function createPaybridgeApp({
       ? { beforeCommit: beforeConfirmationCommit }
       : {}),
   });
-  app.get("/openapi.json", { schema: { hide: true } }, () => app.swagger());
+  registerOpenApi(app);
   app.addHook("onClose", () => db.close());
   return app;
 }

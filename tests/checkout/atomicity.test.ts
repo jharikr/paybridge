@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
 import { type } from "arktype";
 import { isolatedDatabases } from "../support/databases.ts";
+import { contractAt, compareResponse } from "../contracts/support.ts";
 import {
   create,
   confirm,
@@ -90,6 +91,13 @@ test("checkout rollback and a killed acceptance transaction retain no partial at
     const before = paymentRecords(files.paybridge);
     const failed = await checkoutConfirm({ url: rollback.url, payment });
     expect(failed.status).toBe(500);
+    await compareResponse({
+      contract: await contractAt(rollback.url),
+      path: "/checkout/{paymentId}/confirm",
+      method: "post",
+      response: failed,
+      status: 500,
+    });
     expect(paymentRecords(files.paybridge)).toEqual(before);
   } finally {
     await rollback.stop();

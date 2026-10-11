@@ -1,0 +1,125 @@
+[
+  {
+    "id": "index.webhook_outbox.webhook_outbox_merchant_id_created_at_idx_515bf5d4",
+    "label": "Create index webhook_outbox_merchant_id_created_at_idx_515bf5d4 on webhook_outbox",
+    "summary": "Creates index webhook_outbox_merchant_id_created_at_idx_515bf5d4 on webhook_outbox",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "index",
+        "name": "webhook_outbox_merchant_id_created_at_idx_515bf5d4",
+        "table": "webhook_outbox"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"webhook_outbox_merchant_id_created_at_idx_515bf5d4\" is missing",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "webhook_outbox_merchant_id_created_at_idx_515bf5d4"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"webhook_outbox_merchant_id_created_at_idx_515bf5d4\"",
+        "sql": "CREATE INDEX \"webhook_outbox_merchant_id_created_at_idx_515bf5d4\" ON \"webhook_outbox\" (\"merchant_id\", \"created_at\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"webhook_outbox_merchant_id_created_at_idx_515bf5d4\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "webhook_outbox_merchant_id_created_at_idx_515bf5d4"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.webhook_outbox.webhook_outbox_status_lease_expires_at_idx_7b34d2bd",
+    "label": "Create index webhook_outbox_status_lease_expires_at_idx_7b34d2bd on webhook_outbox",
+    "summary": "Creates index webhook_outbox_status_lease_expires_at_idx_7b34d2bd on webhook_outbox",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "index",
+        "name": "webhook_outbox_status_lease_expires_at_idx_7b34d2bd",
+        "table": "webhook_outbox"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"webhook_outbox_status_lease_expires_at_idx_7b34d2bd\" is missing",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "webhook_outbox_status_lease_expires_at_idx_7b34d2bd"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"webhook_outbox_status_lease_expires_at_idx_7b34d2bd\"",
+        "sql": "CREATE INDEX \"webhook_outbox_status_lease_expires_at_idx_7b34d2bd\" ON \"webhook_outbox\" (\"status\", \"lease_expires_at\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"webhook_outbox_status_lease_expires_at_idx_7b34d2bd\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "webhook_outbox_status_lease_expires_at_idx_7b34d2bd"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.webhook_outbox.webhook_outbox_status_next_attempt_at_idx_139f8e47",
+    "label": "Create index webhook_outbox_status_next_attempt_at_idx_139f8e47 on webhook_outbox",
+    "summary": "Creates index webhook_outbox_status_next_attempt_at_idx_139f8e47 on webhook_outbox",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "index",
+        "name": "webhook_outbox_status_next_attempt_at_idx_139f8e47",
+        "table": "webhook_outbox"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"webhook_outbox_status_next_attempt_at_idx_139f8e47\" is missing",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "webhook_outbox_status_next_attempt_at_idx_139f8e47"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"webhook_outbox_status_next_attempt_at_idx_139f8e47\"",
+        "sql": "CREATE INDEX \"webhook_outbox_status_next_attempt_at_idx_139f8e47\" ON \"webhook_outbox\" (\"status\", \"next_attempt_at\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"webhook_outbox_status_next_attempt_at_idx_139f8e47\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "webhook_outbox_status_next_attempt_at_idx_139f8e47"
+        ]
+      }
+    ]
+  }
+]

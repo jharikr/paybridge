@@ -2366,6 +2366,15 @@
               "indexes": [
                 {
                   "columns": [
+                    "merchant_id",
+                    "created_at"
+                  ],
+                  "name": "webhook_outbox_merchant_id_created_at_idx_515bf5d4",
+                  "prefix": "webhook_outbox_merchant_id_created_at_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
                     "merchant_id"
                   ],
                   "name": "webhook_outbox_merchant_id_idx_92be5ce7",
@@ -2378,6 +2387,24 @@
                   ],
                   "name": "webhook_outbox_payment_intent_id_idx_2dc6a9d2",
                   "prefix": "webhook_outbox_payment_intent_id_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "status",
+                    "lease_expires_at"
+                  ],
+                  "name": "webhook_outbox_status_lease_expires_at_idx_7b34d2bd",
+                  "prefix": "webhook_outbox_status_lease_expires_at_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "status",
+                    "next_attempt_at"
+                  ],
+                  "name": "webhook_outbox_status_next_attempt_at_idx_139f8e47",
+                  "prefix": "webhook_outbox_status_next_attempt_at_idx",
                   "unique": false
                 }
               ],
@@ -2399,7 +2426,7 @@
         "id": "__unbound__"
       }
     },
-    "storageHash": "9fbd3da4a17aaa43793ef7162f950da73dae1a48622c73cdf1385c6b1baf95e1"
+    "storageHash": "d5ae02ff34d91917746b2e5234ed309301094356de0c4b79b857da2b3d90e0d8"
   },
   "capabilities": {
     "sql": {

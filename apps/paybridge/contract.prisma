@@ -138,6 +138,9 @@ model WebhookOutbox {
   merchant Merchant @relation(fields: [merchantId], references: [id])
   payment PaymentIntent @relation(fields: [paymentIntentId], references: [id])
   event PaymentEvent @relation(fields: [paymentEventId], references: [id])
+  @@index([status, nextAttemptAt])
+  @@index([status, leaseExpiresAt])
+  @@index([merchantId, createdAt])
   @@map("webhook_outbox")
 }
 

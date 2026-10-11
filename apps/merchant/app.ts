@@ -1,4 +1,5 @@
 import { type } from "arktype";
+import { registerWebhooks, type ReceiptCheckpoint } from "./webhooks.ts";
 import type { FastifyReply } from "fastify";
 import { createHttpApp, errorResponse } from "../../contracts/http.ts";
 import {
@@ -33,11 +34,17 @@ export async function createMerchantApp({
   paybridgeOrigin,
   checkpoint,
   beforeSnapshotCommit,
+  receiptCheckpoint,
+  webhookNow,
+  webhookToleranceSeconds,
 }: {
   db: MerchantDatabase;
   paybridgeOrigin: string;
   checkpoint?: CommandCheckpoint;
   beforeSnapshotCommit?: () => Promise<void>;
+  receiptCheckpoint?: ReceiptCheckpoint;
+  webhookNow?: () => Date;
+  webhookToleranceSeconds?: number;
 }) {
   const { app, requestSchema } = await createHttpApp({
     title: "Sample merchant",
@@ -335,6 +342,16 @@ export async function createMerchantApp({
     errors,
     securityHeaders,
     ...(beforeSnapshotCommit ? { beforeCommit: beforeSnapshotCommit } : {}),
+  });
+  await registerWebhooks({
+    app,
+    requestSchema,
+    db,
+    ...(receiptCheckpoint ? { checkpoint: receiptCheckpoint } : {}),
+    ...(webhookNow ? { now: webhookNow } : {}),
+    ...(webhookToleranceSeconds === undefined
+      ? {}
+      : { toleranceSeconds: webhookToleranceSeconds }),
   });
   return app;
 }

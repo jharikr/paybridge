@@ -50,7 +50,12 @@ export function paymentRecords(path: string) {
       "idempotency_keys",
     ].map((table) => [
       table,
-      rows(path, `SELECT * FROM ${table} ORDER BY rowid`),
+      rows(
+        path,
+        table === "webhook_outbox"
+          ? "SELECT id,payment_event_id,merchant_id,payment_intent_id,event_type,payload,created_at FROM webhook_outbox ORDER BY rowid"
+          : `SELECT * FROM ${table} ORDER BY rowid`,
+      ),
     ]),
   );
 }

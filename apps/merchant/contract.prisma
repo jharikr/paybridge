@@ -1,0 +1,64 @@
+// use prisma-8
+
+model MerchantContext {
+  id String @id
+  returnUrl String @map("return_url")
+  webhookUrl String @map("webhook_url")
+  createdAt String @map("created_at")
+  orders Order[]
+  @@map("merchant_contexts")
+}
+
+model Order {
+  id String @id
+  merchantId String @map("merchant_id")
+  businessReference String @map("business_reference")
+  amount Int
+  currency String
+  description String?
+  state String
+  paidAt String? @map("paid_at")
+  createdAt String @map("created_at")
+  updatedAt String @map("updated_at")
+  merchant MerchantContext @relation(fields: [merchantId], references: [id])
+  payments MerchantPayment[]
+  commands MerchantCommand[]
+  @@unique([merchantId, businessReference])
+  @@unique([id, merchantId])
+  @@map("orders")
+}
+
+model MerchantPayment {
+  paymentIntentId String @id @map("payment_intent_id")
+  merchantId String @map("merchant_id")
+  orderId String @unique @map("order_id")
+  status String?
+  lastAppliedRevision Int @map("last_applied_revision")
+  snapshot String?
+  createdAt String @map("created_at")
+  updatedAt String @map("updated_at")
+  order Order @relation(fields: [orderId], references: [id])
+  @@unique([paymentIntentId, merchantId, orderId])
+  @@map("merchant_payments")
+}
+
+model MerchantCommand {
+  id String @id
+  merchantId String @map("merchant_id")
+  orderId String @map("order_id")
+  operation String
+  commandNumber Int @map("command_number")
+  idempotencyKey String @map("idempotency_key")
+  target String
+  requestBody String @map("request_body")
+  status String
+  responseStatus Int? @map("response_status")
+  responseBody String? @map("response_body")
+  responseHeaders String? @map("response_headers")
+  createdAt String @map("created_at")
+  completedAt String? @map("completed_at")
+  order Order @relation(fields: [orderId], references: [id])
+  @@unique([merchantId, idempotencyKey])
+  @@unique([merchantId, orderId, operation, commandNumber])
+  @@map("merchant_commands")
+}

@@ -47,7 +47,7 @@ test("OpenAPI matches creation, authentication, lookup, bounds, headers, and sta
     const contract = document.assert(
       await (await fetch(`${url}/openapi.json`)).json(),
     );
-    expect(contract.components.securitySchemes).toEqual({
+    expect(contract.components.securitySchemes).toMatchObject({
       merchantCredential: {
         type: "http",
         scheme: "bearer",

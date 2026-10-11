@@ -18,7 +18,7 @@ export function validReturnUrl({
   input,
   merchant,
 }: {
-  input: CreatePaymentInput;
+  input: Pick<CreatePaymentInput, "returnUrl">;
   merchant: AuthenticatedMerchant;
 }) {
   if (/[\u0000-\u001F\u007F]/.test(input.returnUrl)) return false;
@@ -31,6 +31,21 @@ export function validReturnUrl({
     url.password === "" &&
     url.hash === ""
   );
+}
+
+export function paymentReturnLocation({
+  returnUrl,
+  id,
+  merchant,
+}: {
+  returnUrl: string;
+  id: typeof paymentId.infer;
+  merchant: AuthenticatedMerchant;
+}) {
+  if (!validReturnUrl({ input: { returnUrl }, merchant })) return null;
+  const url = new URL(returnUrl);
+  url.searchParams.set("paymentId", id);
+  return url.href;
 }
 
 async function availableInvoice(tx: PaybridgeTransaction) {

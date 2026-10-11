@@ -148,6 +148,10 @@ test("a deliberate confirmation after decline uses a new command on the same int
     const accepted = await post(url, `${path}/confirm`, declinedCommand);
     expect(accepted.status).toBe(202);
     const firstAcknowledgment = await accepted.text();
+    expect(await (await fetch(`${url}${path}`)).json()).toMatchObject({
+      state: "UNPAID",
+      paidAt: null,
+    });
     await services.startWorker();
     await expect
       .poll(
@@ -179,16 +183,16 @@ test("a deliberate confirmation after decline uses a new command on the same int
       creationBody,
     );
     expect(await (await fetch(`${url}${path}`)).json()).toMatchObject({
-      state: "UNPAID",
-      paidAt: null,
+      state: "PAID",
+      paidAt: expect.any(String),
       paymentIntentId: payment.id,
     });
     expect(
       rows(
         files.merchant,
-        "SELECT last_applied_revision, status, snapshot FROM merchant_payments",
+        "SELECT last_applied_revision, status FROM merchant_payments",
       ),
-    ).toEqual([{ last_applied_revision: 0, status: null, snapshot: null }]);
+    ).toEqual([{ last_applied_revision: 5, status: "SUCCEEDED" }]);
     const commands = rows(
       files.merchant,
       "SELECT command_number, idempotency_key, status FROM merchant_commands WHERE operation = 'confirm' ORDER BY command_number",

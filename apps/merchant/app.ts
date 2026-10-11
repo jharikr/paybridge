@@ -23,7 +23,8 @@ import {
   recoverCommand,
   listCommands,
 } from "./commands.ts";
-import { lookupOrderPayment } from "./paybridge.ts";
+import { lookupAndApplyPayment } from "./snapshots.ts";
+import { registerMerchantReturn } from "./return.ts";
 import type { CommandCheckpoint } from "./commands.ts";
 import type { MerchantDatabase } from "./database.ts";
 
@@ -31,10 +32,12 @@ export async function createMerchantApp({
   db,
   paybridgeOrigin,
   checkpoint,
+  beforeSnapshotCommit,
 }: {
   db: MerchantDatabase;
   paybridgeOrigin: string;
   checkpoint?: CommandCheckpoint;
+  beforeSnapshotCommit?: () => Promise<void>;
 }) {
   const { app, requestSchema } = await createHttpApp({
     title: "Sample merchant",
@@ -282,12 +285,17 @@ export async function createMerchantApp({
     },
     async (request) => {
       const params = orderParams.assert(request.params);
-      return lookupOrderPayment({
-        db,
-        merchant: context(params.merchantFixture),
-        id: params.orderId,
-        paybridgeOrigin,
-      });
+      return (
+        await lookupAndApplyPayment({
+          db,
+          merchant: context(params.merchantFixture),
+          id: params.orderId,
+          paybridgeOrigin,
+          ...(beforeSnapshotCommit
+            ? { beforeCommit: beforeSnapshotCommit }
+            : {}),
+        })
+      ).snapshot;
     },
   );
   app.post(
@@ -319,6 +327,15 @@ export async function createMerchantApp({
       return sendAcknowledgment(reply, result);
     },
   );
+  registerMerchantReturn({
+    app,
+    requestSchema,
+    db,
+    paybridgeOrigin,
+    errors,
+    securityHeaders,
+    ...(beforeSnapshotCommit ? { beforeCommit: beforeSnapshotCommit } : {}),
+  });
   return app;
 }
 

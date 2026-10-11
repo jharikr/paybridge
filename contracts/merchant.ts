@@ -3,6 +3,8 @@ import {
   createPaymentInput,
   confirmPaymentInput,
   paymentId,
+  paymentSnapshot,
+  paymentRevision,
 } from "./payments.ts";
 
 export const merchantFixture = type("'merchant-a' | 'merchant-b'");
@@ -36,5 +38,19 @@ export const merchantCommandSummary = type({
 });
 export const merchantCommandList = type({
   commands: merchantCommandSummary.array(),
+  "+": "reject",
+});
+export const merchantPaymentSnapshot = paymentSnapshot
+  .pick("merchantReference", "amount", "currency", "status", "revision")
+  .merge({
+    paymentIntentId: paymentId,
+    revision: paymentRevision,
+    "+": "reject",
+  });
+export const merchantReturnResult = type({
+  orderId,
+  state: "'UNPAID' | 'PAID'",
+  paidAt: "string | null",
+  payment: merchantPaymentSnapshot,
   "+": "reject",
 });

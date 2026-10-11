@@ -9,6 +9,8 @@ import {
   confirmPaymentInput,
   confirmationAcknowledgment,
 } from "../../contracts/payments.ts";
+import { registerCheckout } from "./checkout.ts";
+import { sendConfirmationResult } from "./confirmation-response.ts";
 import type { PaybridgeDatabase } from "./database.ts";
 import { authenticateMerchant } from "./merchants.ts";
 import { confirmPayment, cancelPayment } from "./payment-commands.ts";
@@ -32,6 +34,13 @@ export async function createPaybridgeApp({
     openapi: {
       components: {
         securitySchemes: {
+          checkoutCapability: {
+            type: "apiKey",
+            in: "query",
+            name: "token",
+            description:
+              "Random payment-bound checkout capability. Missing, invalid, or differently bound tokens return generic not-found; they are not merchant API credentials.",
+          },
           merchantCredential: {
             type: "http",
             scheme: "bearer",
@@ -42,16 +51,21 @@ export async function createPaybridgeApp({
       },
     },
   });
+  const snapshotHeaders = {
+    "cache-control": { type: "string", const: "no-store" },
+    "x-content-type-options": { type: "string", const: "nosniff" },
+  };
   const errors = {
     ...Object.fromEntries(
       [400, 401, 404, 413, 414, 415, 500].map((status) => [
         status,
-        errorResponse.toJsonSchema(),
+        { ...errorResponse.toJsonSchema(), headers: snapshotHeaders },
       ]),
     ),
     409: {
       ...errorResponse.toJsonSchema(),
       headers: {
+        ...snapshotHeaders,
         "retry-after": {
           type: "string",
           const: "1",
@@ -63,6 +77,7 @@ export async function createPaybridgeApp({
     503: {
       ...errorResponse.toJsonSchema(),
       headers: {
+        ...snapshotHeaders,
         "retry-after": {
           type: "string",
           const: "1",
@@ -103,10 +118,6 @@ export async function createPaybridgeApp({
 
   const creationHeaders = type({ "idempotency-key": commandKey });
   const security = [{ merchantCredential: [] }];
-  const snapshotHeaders = {
-    "cache-control": { type: "string", const: "no-store" },
-    "x-content-type-options": { type: "string", const: "nosniff" },
-  };
 
   app.post<{
     Body: typeof createPaymentInput.infer;
@@ -313,73 +324,12 @@ export async function createPaybridgeApp({
         id: request.params.paymentId,
         input: request.body,
         key: request.headers["idempotency-key"],
-        paybridgeOrigin,
+        acknowledgment: { kind: "merchant", paybridgeOrigin },
         ...(beforeConfirmationCommit
           ? { beforeCommit: beforeConfirmationCommit }
           : {}),
       });
-      switch (result.kind) {
-        case "completed":
-          return reply
-            .code(result.acknowledgment.status)
-            .headers(result.acknowledgment.headers)
-            .send(result.acknowledgment.body);
-        case "conflict":
-          return reply
-            .code(409)
-            .send(
-              error(
-                "idempotency_conflict",
-                "The command key identifies a different request.",
-                request.id,
-              ),
-            );
-        case "in_progress":
-          return reply
-            .code(409)
-            .header("retry-after", "1")
-            .send(
-              error(
-                "command_in_progress",
-                "The command is still in progress.",
-                request.id,
-              ),
-            );
-        case "not_found":
-          return reply
-            .code(404)
-            .send(
-              error(
-                "payment_not_found",
-                "The payment was not found.",
-                request.id,
-              ),
-            );
-        case "revision_conflict":
-          return reply
-            .code(409)
-            .send(
-              error(
-                "payment_revision_conflict",
-                "The payment revision has changed.",
-                request.id,
-              ),
-            );
-        case "not_confirmable":
-          return reply
-            .code(409)
-            .send(
-              error(
-                "payment_not_confirmable",
-                "The payment cannot be confirmed in its current state.",
-                request.id,
-              ),
-            );
-        default: {
-          const exhaustive: never = result;
-          return exhaustive;
-        }
-      }
+      return sendConfirmationResult({ reply, result, requestId: request.id });
     },
   );
   app.post<{ Params: typeof params.infer }>(
@@ -462,6 +412,16 @@ export async function createPaybridgeApp({
       }
     },
   );
+  registerCheckout({
+    app,
+    requestSchema,
+    db,
+    errors,
+    snapshotHeaders,
+    ...(beforeConfirmationCommit
+      ? { beforeCommit: beforeConfirmationCommit }
+      : {}),
+  });
   app.get("/openapi.json", { schema: { hide: true } }, () => app.swagger());
   app.addHook("onClose", () => db.close());
   return app;

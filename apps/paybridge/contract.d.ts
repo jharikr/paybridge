@@ -17,7 +17,7 @@ import type {
 } from '@prisma/orm-sqlite/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'b81791e37db9f73e826b73c7def36cc02f1057bb1ba5ead750406228108cbb06'>;
+  StorageHashBase<'9fbd3da4a17aaa43793ef7162f950da73dae1a48622c73cdf1385c6b1baf95e1'>;
 export type ExecutionHash = ExecutionHashBase<string>;
 export type ProfileHash =
   ProfileHashBase<'260b8608d1aacaf1f690779a6cff39a12947c599597c5ba464ca75b9e775df53'>;
@@ -1493,6 +1493,12 @@ type ContractBase = Omit<
                   readonly name: 'reconciliations_payment_intent_id_idx_2dc6a9d2';
                   readonly prefix: 'reconciliations_payment_intent_id_idx';
                   readonly columns: readonly ['payment_intent_id'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'reconciliations_status_created_at_idx_1bbe8adf';
+                  readonly prefix: 'reconciliations_status_created_at_idx';
+                  readonly columns: readonly ['status', 'created_at'];
                   readonly unique: false;
                 },
               ];

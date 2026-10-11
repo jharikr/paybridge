@@ -18,11 +18,15 @@ const headers = {
   authorization: "Bearer mock-paybridge-key-a",
   "content-type": "application/json",
 };
-async function create(
-  url: string,
+async function create({
+  url,
   key = "create-1",
   authorization = headers.authorization,
-) {
+}: {
+  url: string;
+  key?: string;
+  authorization?: string;
+}) {
   const response = await fetch(`${url}/v1/payment-intents`, {
     method: "POST",
     headers: { ...headers, authorization, "idempotency-key": key },
@@ -30,22 +34,31 @@ async function create(
       merchantReference: "CONFIRM-1",
       amount: 7500,
       currency: "XCD",
-      returnUrl: "http://127.0.0.1:3101/payment-return",
+      returnUrl:
+        authorization === "Bearer mock-paybridge-key-b"
+          ? "http://localhost:3101/payment-return"
+          : "http://127.0.0.1:3101/payment-return",
     }),
   });
   expect(response.status).toBe(201);
   return created.assert(await response.json()).id;
 }
-function confirm(
-  url: string,
-  id: string,
+function confirm({
+  url,
+  id,
   key = "confirm-1",
-  input: unknown = {
+  input = {
     mockPaymentMethodRef: "pm_mock_approved",
     expectedRevision: 1,
   },
   authorization = headers.authorization,
-) {
+}: {
+  url: string;
+  id: string;
+  key?: string;
+  input?: unknown;
+  authorization?: string;
+}) {
   return fetch(`${url}/v1/payment-intents/${id}/confirm`, {
     method: "POST",
     headers: { ...headers, authorization, "idempotency-key": key },
@@ -90,8 +103,8 @@ test("confirmation durably accepts one merchant-owned attempt and replays the ex
   const server = startNodeProcess({ entrypoint, args: [files.paybridge, "0"] });
   try {
     const { url } = ready.assert(await server.message());
-    const id = await create(url);
-    const first = await confirm(url, id);
+    const id = await create({ url });
+    const first = await confirm({ url, id });
     expect(first.status).toBe(202);
     expect(first.headers.get("location")).toBe(`/v1/payment-intents/${id}`);
     expect(first.headers.get("cache-control")).toBe("no-store");
@@ -105,7 +118,7 @@ test("confirmation durably accepts one merchant-owned attempt and replays the ex
       revision: 2,
       statusUrl: `http://127.0.0.1:3100/v1/payment-intents/${id}`,
     });
-    const replay = await confirm(url, id);
+    const replay = await confirm({ url, id });
     expect(replay.status).toBe(202);
     expect(await replay.text()).toBe(body);
     const lookup = await fetch(`${url}/v1/payment-intents/${id}`, { headers });
@@ -174,7 +187,7 @@ test("merchant cancellation is terminal and repeating it preserves one revision,
   const server = startNodeProcess({ entrypoint, args: [files.paybridge, "0"] });
   try {
     const { url } = ready.assert(await server.message());
-    const id = await create(url);
+    const id = await create({ url });
     const cancel = () =>
       fetch(`${url}/v1/payment-intents/${id}/cancel`, {
         method: "POST",
@@ -193,9 +206,14 @@ test("merchant cancellation is terminal and repeating it preserves one revision,
     const repeat = await cancel();
     expect(repeat.status).toBe(200);
     expect(await repeat.text()).toBe(body);
-    const rejected = await confirm(url, id, "after-cancellation", {
-      mockPaymentMethodRef: "pm_mock_approved",
-      expectedRevision: 2,
+    const rejected = await confirm({
+      url,
+      id,
+      key: "after-cancellation",
+      input: {
+        mockPaymentMethodRef: "pm_mock_approved",
+        expectedRevision: 2,
+      },
     });
     expect(rejected.status).toBe(409);
     expect(await rejected.json()).toMatchObject({
@@ -243,8 +261,8 @@ test("database constraints retain fixed attempt identity and permit only one unr
   const server = startNodeProcess({ entrypoint, args: [files.paybridge, "0"] });
   try {
     const { url } = ready.assert(await server.message());
-    const id = await create(url);
-    expect((await confirm(url, id)).status).toBe(202);
+    const id = await create({ url });
+    expect((await confirm({ url, id })).status).toBe(202);
     const db = new DatabaseSync(files.paybridge);
     try {
       expect(() =>
@@ -294,7 +312,7 @@ test("confirmation validates ownership, the observed revision, synthetic input, 
   const server = startNodeProcess({ entrypoint, args: [files.paybridge, "0"] });
   try {
     const { url } = ready.assert(await server.message());
-    const id = await create(url);
+    const id = await create({ url });
     const missingKey = await fetch(`${url}/v1/payment-intents/${id}/confirm`, {
       method: "POST",
       headers,
@@ -307,7 +325,7 @@ test("confirmation validates ownership, the observed revision, synthetic input, 
     expect(await missingKey.json()).toMatchObject({
       error: { code: "invalid_idempotency_key" },
     });
-    const otherId = await create(url, "create-2");
+    const otherId = await create({ url, key: "create-2" });
     const merchantB = "Bearer mock-paybridge-key-b";
     for (const input of [
       {},
@@ -332,29 +350,45 @@ test("confirmation validates ownership, the observed revision, synthetic input, 
       },
     ])
       expect(
-        (await confirm(url, id, "valid-after-rejections", input)).status,
+        (await confirm({ url, id, key: "valid-after-rejections", input }))
+          .status,
       ).toBe(400);
-    const foreign = await confirm(url, id, "foreign", undefined, merchantB);
+    const foreign = await confirm({
+      url,
+      id,
+      key: "foreign",
+      input: undefined,
+      authorization: merchantB,
+    });
     expect(foreign.status).toBe(404);
     expect(await foreign.json()).toMatchObject({
       error: { code: "payment_not_found" },
     });
-    const missing = await confirm(url, `pi_${"f".repeat(32)}`, "missing");
+    const missing = await confirm({
+      url,
+      id: `pi_${"f".repeat(32)}`,
+      key: "missing",
+    });
     expect(missing.status).toBe(404);
     expect(
       (
-        await confirm(
+        await confirm({
           url,
           id,
-          "bad-auth",
-          undefined,
-          "Bearer mock-provider-key-a",
-        )
+          key: "bad-auth",
+          input: undefined,
+          authorization: "Bearer mock-provider-key-a",
+        })
       ).status,
     ).toBe(401);
-    const stale = await confirm(url, id, "stale", {
-      mockPaymentMethodRef: "pm_mock_approved",
-      expectedRevision: 9,
+    const stale = await confirm({
+      url,
+      id,
+      key: "stale",
+      input: {
+        mockPaymentMethodRef: "pm_mock_approved",
+        expectedRevision: 9,
+      },
     });
     expect(stale.status).toBe(409);
     expect(await stale.json()).toMatchObject({
@@ -365,7 +399,7 @@ test("confirmation validates ownership, the observed revision, synthetic input, 
       "create-2",
     ]);
     expect(records(files.paybridge).attempts).toEqual([]);
-    const first = await confirm(url, id, "valid-after-rejections");
+    const first = await confirm({ url, id, key: "valid-after-rejections" });
     expect(first.status).toBe(202);
     const original = await first.text();
     for (const [target, key, input] of [
@@ -390,23 +424,28 @@ test("confirmation validates ownership, the observed revision, synthetic input, 
         { mockPaymentMethodRef: "pm_mock_approved", expectedRevision: 1 },
       ],
     ] as const) {
-      const conflict = await confirm(url, target, key, input);
+      const conflict = await confirm({ url, id: target, key, input });
       expect(conflict.status).toBe(409);
       expect(await conflict.json()).toMatchObject({
         error: { code: "idempotency_conflict" },
       });
     }
     expect(
-      await (await confirm(url, id, "valid-after-rejections")).text(),
+      await (await confirm({ url, id, key: "valid-after-rejections" })).text(),
     ).toBe(original);
-    const duplicateRevision = await confirm(url, id, "different-key");
+    const duplicateRevision = await confirm({ url, id, key: "different-key" });
     expect(duplicateRevision.status).toBe(409);
     expect(await duplicateRevision.json()).toMatchObject({
       error: { code: "payment_revision_conflict" },
     });
-    const unresolved = await confirm(url, id, "unresolved", {
-      mockPaymentMethodRef: "pm_mock_approved",
-      expectedRevision: 2,
+    const unresolved = await confirm({
+      url,
+      id,
+      key: "unresolved",
+      input: {
+        mockPaymentMethodRef: "pm_mock_approved",
+        expectedRevision: 2,
+      },
     });
     expect(unresolved.status).toBe(409);
     expect(await unresolved.json()).toMatchObject({
@@ -420,14 +459,18 @@ test("confirmation validates ownership, the observed revision, synthetic input, 
         })
       ).status,
     ).toBe(409);
-    const bId = await create(url, "create-1", merchantB);
-    const b = await confirm(
+    const bId = await create({
       url,
-      bId,
-      "valid-after-rejections",
-      undefined,
-      merchantB,
-    );
+      key: "create-1",
+      authorization: merchantB,
+    });
+    const b = await confirm({
+      url,
+      id: bId,
+      key: "valid-after-rejections",
+      input: undefined,
+      authorization: merchantB,
+    });
     expect(b.status).toBe(202);
     expect(
       records(files.paybridge)
@@ -448,7 +491,7 @@ test("cancellation hides other merchants' payments and rejects payloads without 
   const server = startNodeProcess({ entrypoint, args: [files.paybridge, "0"] });
   try {
     const { url } = ready.assert(await server.message());
-    const id = await create(url);
+    const id = await create({ url });
     const foreign = await fetch(`${url}/v1/payment-intents/${id}/cancel`, {
       method: "POST",
       headers: { authorization: "Bearer mock-paybridge-key-b" },

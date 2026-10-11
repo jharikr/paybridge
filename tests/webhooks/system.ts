@@ -2,7 +2,13 @@ import { fileURLToPath } from "node:url";
 import { type } from "arktype";
 import { startNodeProcess } from "../support/process.ts";
 import { ready } from "./support.ts";
-export async function startApi(path: string, merchantOrigin: string) {
+export async function startApi({
+  path,
+  merchantOrigin,
+}: {
+  path: string;
+  merchantOrigin: string;
+}) {
   const api = startNodeProcess({
     entrypoint: fileURLToPath(new URL("./fixtures/api.ts", import.meta.url)),
     args: [path, merchantOrigin],
@@ -14,9 +20,9 @@ export async function startApi(path: string, merchantOrigin: string) {
     throw error;
   }
 }
-export async function startDelivery(
-  path: string,
-  {
+export async function startDelivery({
+  path,
+  options: {
     held = "none",
     timeout = 500,
     lease = 5000,
@@ -24,7 +30,17 @@ export async function startDelivery(
     base = 50,
     cap = 200,
   } = {},
-) {
+}: {
+  path: string;
+  options?: {
+    held?: string;
+    timeout?: number;
+    lease?: number;
+    poll?: number;
+    base?: number;
+    cap?: number;
+  };
+}) {
   const worker = startNodeProcess({
     entrypoint: fileURLToPath(new URL("./fixtures/worker.ts", import.meta.url)),
     args: [
@@ -54,11 +70,15 @@ export async function startDelivery(
     throw error;
   }
 }
-export async function cancelled(
-  url: string,
-  merchantOrigin: string,
+export async function cancelled({
+  url,
+  merchantOrigin,
   key = "cancelled",
-) {
+}: {
+  url: string;
+  merchantOrigin: string;
+  key?: string;
+}) {
   const response = await fetch(`${url}/v1/payment-intents`, {
     method: "POST",
     headers: {
@@ -84,10 +104,13 @@ export async function cancelled(
   return id;
 }
 
-export async function advance(
-  worker: ReturnType<typeof startNodeProcess>,
-  epochMs: number,
-) {
+export async function advance({
+  worker,
+  epochMs,
+}: {
+  worker: ReturnType<typeof startNodeProcess>;
+  epochMs: number;
+}) {
   worker.child.send({ kind: "advance", epochMs });
   for (;;) {
     if (type({ kind: "'advanced'" }).allows(await worker.message())) return;

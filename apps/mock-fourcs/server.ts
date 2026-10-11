@@ -5,6 +5,7 @@ import swagger from "@fastify/swagger";
 import { registerOpenApi } from "../../contracts/openapi.ts";
 import {
   buildFourcsResponse,
+  providerTranId,
   parseFourcsRequest,
   soapAction,
   soapBodyLimit,
@@ -162,7 +163,7 @@ export async function createMockFourcs({
           : "OK";
       const echo =
         request.paymentMethodRef === "pm_mock_mismatched_echo"
-          ? { ...request, tranId: "WRONGECHO" }
+          ? { ...request, tranId: providerTranId.assert("WRONGECHO") }
           : request;
       return buildFourcsResponse({
         operationResult,

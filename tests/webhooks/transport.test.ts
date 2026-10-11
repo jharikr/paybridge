@@ -33,49 +33,61 @@ test.each([
       endpoint.listen(0, "127.0.0.1", resolve),
     );
     origin = `http://127.0.0.1:${type({ port: "number" }).assert(endpoint.address()).port}`;
-    const api = await startApi(files.paybridge, origin);
+    const api = await startApi({
+      path: files.paybridge,
+      merchantOrigin: origin,
+    });
     let worker: Awaited<ReturnType<typeof startDelivery>> | undefined;
     try {
-      await cancelled(api.url, origin);
-      const original = rows(
-        files.paybridge,
-        "SELECT payment_event_id,payload FROM webhook_outbox",
-      );
-      worker = await startDelivery(files.paybridge, {
-        timeout: 200,
-        lease: 2000,
+      await cancelled({ url: api.url, merchantOrigin: origin });
+      const original = rows({
+        path: files.paybridge,
+        sql: "SELECT payment_event_id,payload FROM webhook_outbox",
       });
-      await advance(worker, Date.now() + 1000);
+      worker = await startDelivery({
+        path: files.paybridge,
+        options: {
+          timeout: 200,
+          lease: 2000,
+        },
+      });
+      await advance({ worker, epochMs: Date.now() + 1000 });
       await worker.start();
       await expect
         .poll(() =>
-          rows(
-            files.paybridge,
-            "SELECT status,last_error,attempt_count FROM webhook_outbox",
-          ),
+          rows({
+            path: files.paybridge,
+            sql: "SELECT status,last_error,attempt_count FROM webhook_outbox",
+          }),
         )
         .toEqual([{ status: "PENDING", last_error: code, attempt_count: 1 }]);
       expect(calls).toBe(1);
       const due = type({ next_attempt_at: "string" }).assert(
-        rows(files.paybridge, "SELECT next_attempt_at FROM webhook_outbox")[0],
+        rows({
+          path: files.paybridge,
+          sql: "SELECT next_attempt_at FROM webhook_outbox",
+        })[0],
       );
-      await advance(worker, Date.parse(due.next_attempt_at));
+      await advance({ worker, epochMs: Date.parse(due.next_attempt_at) });
       await expect
         .poll(() =>
-          rows(
-            files.paybridge,
-            "SELECT status,attempt_count FROM webhook_outbox",
-          ),
+          rows({
+            path: files.paybridge,
+            sql: "SELECT status,attempt_count FROM webhook_outbox",
+          }),
         )
         .toEqual([{ status: "DELIVERED", attempt_count: 2 }]);
       expect(
-        rows(
-          files.paybridge,
-          "SELECT payment_event_id,payload FROM webhook_outbox",
-        ),
+        rows({
+          path: files.paybridge,
+          sql: "SELECT payment_event_id,payload FROM webhook_outbox",
+        }),
       ).toEqual(original);
       expect(
-        rows(files.paybridge, "SELECT status,revision FROM payment_intents"),
+        rows({
+          path: files.paybridge,
+          sql: "SELECT status,revision FROM payment_intents",
+        }),
       ).toEqual([{ status: "CANCELLED", revision: 2 }]);
     } finally {
       await worker?.stop();
@@ -98,19 +110,25 @@ test("successful headers acknowledge delivery without waiting for an unbounded r
     endpoint.listen(0, "127.0.0.1", resolve),
   );
   const origin = `http://127.0.0.1:${type({ port: "number" }).assert(endpoint.address()).port}`;
-  const api = await startApi(files.paybridge, origin);
+  const api = await startApi({ path: files.paybridge, merchantOrigin: origin });
   let worker: Awaited<ReturnType<typeof startDelivery>> | undefined;
   try {
-    await cancelled(api.url, origin);
-    worker = await startDelivery(files.paybridge, {
-      timeout: 200,
-      lease: 2000,
+    await cancelled({ url: api.url, merchantOrigin: origin });
+    worker = await startDelivery({
+      path: files.paybridge,
+      options: {
+        timeout: 200,
+        lease: 2000,
+      },
     });
     await worker.start();
     await expect
       .poll(
         () =>
-          rows(files.paybridge, "SELECT status,last_error FROM webhook_outbox"),
+          rows({
+            path: files.paybridge,
+            sql: "SELECT status,last_error FROM webhook_outbox",
+          }),
         { timeout: 1000 },
       )
       .toEqual([{ status: "DELIVERED", last_error: null }]);

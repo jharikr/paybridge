@@ -17,7 +17,7 @@ import type {
 } from '@prisma/orm-sqlite/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'d5ae02ff34d91917746b2e5234ed309301094356de0c4b79b857da2b3d90e0d8'>;
+  StorageHashBase<'90bb09ae6a605504ed3bdf17e5137c2ad2d4aa3b7891ac0f7d7d546b4e88355b'>;
 export type ExecutionHash = ExecutionHashBase<string>;
 export type ProfileHash =
   ProfileHashBase<'260b8608d1aacaf1f690779a6cff39a12947c599597c5ba464ca75b9e775df53'>;
@@ -875,14 +875,7 @@ type ContractBase = Omit<
               };
               primaryKey: { readonly columns: readonly ['merchant_id', 'key'] };
               uniques: readonly [];
-              indexes: readonly [
-                {
-                  readonly name: 'idempotency_keys_merchant_id_idx_92be5ce7';
-                  readonly prefix: 'idempotency_keys_merchant_id_idx';
-                  readonly columns: readonly ['merchant_id'];
-                  readonly unique: false;
-                },
-              ];
+              indexes: readonly [];
               foreignKeys: readonly [
                 {
                   readonly source: {
@@ -1067,14 +1060,7 @@ type ContractBase = Omit<
                 { readonly columns: readonly ['payment_intent_id', 'attempt_number'] },
                 { readonly columns: readonly ['provider', 'provider_transaction_id'] },
               ];
-              indexes: readonly [
-                {
-                  readonly name: 'payment_attempts_payment_intent_id_idx_2dc6a9d2';
-                  readonly prefix: 'payment_attempts_payment_intent_id_idx';
-                  readonly columns: readonly ['payment_intent_id'];
-                  readonly unique: false;
-                },
-              ];
+              indexes: readonly [];
               foreignKeys: readonly [
                 {
                   readonly source: {
@@ -1163,9 +1149,9 @@ type ContractBase = Omit<
               uniques: readonly [];
               indexes: readonly [
                 {
-                  readonly name: 'payment_events_payment_intent_id_idx_2dc6a9d2';
-                  readonly prefix: 'payment_events_payment_intent_id_idx';
-                  readonly columns: readonly ['payment_intent_id'];
+                  readonly name: 'payment_events_payment_intent_id_created_at_idx_e9f35b8e';
+                  readonly prefix: 'payment_events_payment_intent_id_created_at_idx';
+                  readonly columns: readonly ['payment_intent_id', 'created_at'];
                   readonly unique: false;
                 },
               ];
@@ -1272,9 +1258,21 @@ type ContractBase = Omit<
               ];
               indexes: readonly [
                 {
-                  readonly name: 'payment_intents_merchant_id_idx_92be5ce7';
-                  readonly prefix: 'payment_intents_merchant_id_idx';
-                  readonly columns: readonly ['merchant_id'];
+                  readonly name: 'payment_intents_created_at_idx_225d8c0f';
+                  readonly prefix: 'payment_intents_created_at_idx';
+                  readonly columns: readonly ['created_at'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'payment_intents_merchant_id_merchant_reference_idx_560fb5c7';
+                  readonly prefix: 'payment_intents_merchant_id_merchant_reference_idx';
+                  readonly columns: readonly ['merchant_id', 'merchant_reference'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'payment_intents_merchant_id_status_idx_06a43d97';
+                  readonly prefix: 'payment_intents_merchant_id_status_idx';
+                  readonly columns: readonly ['merchant_id', 'status'];
                   readonly unique: false;
                 },
               ];
@@ -1629,12 +1627,6 @@ type ContractBase = Omit<
                   readonly name: 'webhook_outbox_merchant_id_created_at_idx_515bf5d4';
                   readonly prefix: 'webhook_outbox_merchant_id_created_at_idx';
                   readonly columns: readonly ['merchant_id', 'created_at'];
-                  readonly unique: false;
-                },
-                {
-                  readonly name: 'webhook_outbox_merchant_id_idx_92be5ce7';
-                  readonly prefix: 'webhook_outbox_merchant_id_idx';
-                  readonly columns: readonly ['merchant_id'];
                   readonly unique: false;
                 },
                 {

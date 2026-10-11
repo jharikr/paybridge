@@ -19,54 +19,66 @@ test("a durably received success pays only its bound order once, survives restar
   });
   let worker: Awaited<ReturnType<typeof startInbox>> | undefined;
   try {
-    const { payment, path } = await boundOrder(merchant.url);
-    await boundOrder(merchant.url, "b");
+    const { payment, path } = await boundOrder({ url: merchant.url });
+    await boundOrder({ url: merchant.url, merchant: "b" });
     expect(
       (
-        await post(merchant.url, `${path}/confirm`, {
-          commandNumber: 1,
-          expectedRevision: 1,
-          mockPaymentMethodRef: "pm_mock_approved",
+        await post({
+          url: merchant.url,
+          path: `${path}/confirm`,
+          body: {
+            commandNumber: 1,
+            expectedRevision: 1,
+            mockPaymentMethodRef: "pm_mock_approved",
+          },
         })
       ).status,
     ).toBe(202);
     await services.startWorker();
     await expect
-      .poll(async () => (await lookup(services.url, payment.id)).status)
+      .poll(
+        async () =>
+          (await lookup({ url: services.url, id: payment.id })).status,
+      )
       .toBe("SUCCEEDED");
     const [event] = events(files.paybridge);
     if (!event) throw new Error("Expected committed success event");
-    expect((await deliver(merchant.url, event.payload)).status).toBe(204);
-    expect(rows(files.merchant, "SELECT state FROM orders")).toEqual([
-      { state: "UNPAID" },
-      { state: "UNPAID" },
-    ]);
+    expect(
+      (await deliver({ url: merchant.url, body: event.payload })).status,
+    ).toBe(204);
+    expect(
+      rows({ path: files.merchant, sql: "SELECT state FROM orders" }),
+    ).toEqual([{ state: "UNPAID" }, { state: "UNPAID" }]);
     worker = await startInbox(files.merchant);
     await expect
-      .poll(() => rows(files.merchant, "SELECT status FROM webhook_inbox"))
+      .poll(() =>
+        rows({ path: files.merchant, sql: "SELECT status FROM webhook_inbox" }),
+      )
       .toEqual([{ status: "PROCESSED" }]);
     expect(await (await fetch(`${merchant.url}${path}`)).json()).toMatchObject({
       state: "PAID",
       paidAt: expect.any(String),
     });
     expect(
-      rows(
-        files.merchant,
-        "SELECT merchant_id,state FROM orders ORDER BY merchant_id",
-      ),
+      rows({
+        path: files.merchant,
+        sql: "SELECT merchant_id,state FROM orders ORDER BY merchant_id",
+      }),
     ).toEqual([
       { merchant_id: "merchant-a", state: "PAID" },
       { merchant_id: "merchant-b", state: "UNPAID" },
     ]);
     expect(
-      rows(
-        files.merchant,
-        "SELECT last_applied_revision,status FROM merchant_payments WHERE merchant_id='merchant-a'",
-      ),
+      rows({
+        path: files.merchant,
+        sql: "SELECT last_applied_revision,status FROM merchant_payments WHERE merchant_id='merchant-a'",
+      }),
     ).toEqual([{ last_applied_revision: 3, status: "SUCCEEDED" }]);
     const completed = merchantRecords(files.merchant);
     await worker.stop();
-    expect((await deliver(merchant.url, event.payload)).status).toBe(204);
+    expect(
+      (await deliver({ url: merchant.url, body: event.payload })).status,
+    ).toBe(204);
     worker = await startInbox(files.merchant);
     expect(
       await (
@@ -77,7 +89,10 @@ test("a durably received success pays only its bound order once, survives restar
     ).toMatchObject({ state: "PAID", payment: { revision: 3 } });
     expect(merchantRecords(files.merchant)).toEqual(completed);
     expect(
-      rows(files.mockFourcs, "SELECT effect_count FROM mock_transactions"),
+      rows({
+        path: files.mockFourcs,
+        sql: "SELECT effect_count FROM mock_transactions",
+      }),
     ).toEqual([{ effect_count: 1 }]);
   } finally {
     await worker?.stop();
@@ -94,19 +109,26 @@ test("a first receipt at the revision already applied by lookup is processed wit
   });
   let worker: Awaited<ReturnType<typeof startInbox>> | undefined;
   try {
-    const { payment, path } = await boundOrder(merchant.url);
+    const { payment, path } = await boundOrder({ url: merchant.url });
     expect(
       (
-        await post(merchant.url, `${path}/confirm`, {
-          commandNumber: 1,
-          expectedRevision: 1,
-          mockPaymentMethodRef: "pm_mock_approved",
+        await post({
+          url: merchant.url,
+          path: `${path}/confirm`,
+          body: {
+            commandNumber: 1,
+            expectedRevision: 1,
+            mockPaymentMethodRef: "pm_mock_approved",
+          },
         })
       ).status,
     ).toBe(202);
     await services.startWorker();
     await expect
-      .poll(async () => (await lookup(services.url, payment.id)).status)
+      .poll(
+        async () =>
+          (await lookup({ url: services.url, id: payment.id })).status,
+      )
       .toBe("SUCCEEDED");
     expect(
       await (await fetch(`${merchant.url}${path}/payment`)).json(),
@@ -117,17 +139,25 @@ test("a first receipt at the revision already applied by lookup is processed wit
     ]);
     const [event] = events(files.paybridge);
     if (!event) throw new Error("Expected success event");
-    expect((await deliver(merchant.url, event.payload)).status).toBe(204);
+    expect(
+      (await deliver({ url: merchant.url, body: event.payload })).status,
+    ).toBe(204);
     worker = await startInbox(files.merchant);
     await expect
       .poll(() =>
-        rows(files.merchant, "SELECT status,attempt_count FROM webhook_inbox"),
+        rows({
+          path: files.merchant,
+          sql: "SELECT status,attempt_count FROM webhook_inbox",
+        }),
       )
       .toEqual([{ status: "PROCESSED", attempt_count: 1 }]);
     expect(merchantRecords(files.merchant).orders).toEqual(accepted.orders);
     expect(merchantRecords(files.merchant).payments).toEqual(accepted.payments);
     expect(
-      rows(files.mockFourcs, "SELECT effect_count FROM mock_transactions"),
+      rows({
+        path: files.mockFourcs,
+        sql: "SELECT effect_count FROM mock_transactions",
+      }),
     ).toEqual([{ effect_count: 1 }]);
   } finally {
     await worker?.stop();

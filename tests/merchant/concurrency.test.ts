@@ -27,11 +27,11 @@ test("two sample processes converge on one order, creation command, binding, and
     const origins = [first.url, second.url];
     const orders = await Promise.all(
       Array.from({ length: 12 }, async (_, index) => {
-        const response = await post(
-          origins[index % 2] ?? first.url,
-          "/merchant-a/orders",
-          orderBody,
-        );
+        const response = await post({
+          url: origins[index % 2] ?? first.url,
+          path: "/merchant-a/orders",
+          body: orderBody,
+        });
         expect([200, 201]).toContain(response.status);
         return orderIdentity.assert(await response.json());
       }),
@@ -41,10 +41,10 @@ test("two sample processes converge on one order, creation command, binding, and
     const path = `/merchant-a/orders/${id}`;
     const creations = await Promise.all(
       Array.from({ length: 12 }, async (_, index) => {
-        const response = await post(
-          origins[index % 2] ?? first.url,
-          `${path}/payment`,
-        );
+        const response = await post({
+          url: origins[index % 2] ?? first.url,
+          path: `${path}/payment`,
+        });
         expect(response.status).toBe(201);
         return response.text();
       }),
@@ -52,38 +52,43 @@ test("two sample processes converge on one order, creation command, binding, and
     expect(new Set(creations).size).toBe(1);
     const confirmations = await Promise.all(
       Array.from({ length: 12 }, async (_, index) => {
-        const response = await post(
-          origins[index % 2] ?? first.url,
-          `${path}/confirm`,
-          {
+        const response = await post({
+          url: origins[index % 2] ?? first.url,
+          path: `${path}/confirm`,
+          body: {
             commandNumber: 1,
             mockPaymentMethodRef: "pm_mock_approved",
             expectedRevision: 1,
           },
-        );
+        });
         expect(response.status).toBe(202);
         return response.text();
       }),
     );
     expect(new Set(confirmations).size).toBe(1);
-    expect(rows(files.merchant, "SELECT id FROM orders")).toHaveLength(1);
     expect(
-      rows(files.merchant, "SELECT payment_intent_id FROM merchant_payments"),
+      rows({ path: files.merchant, sql: "SELECT id FROM orders" }),
     ).toHaveLength(1);
     expect(
-      rows(
-        files.merchant,
-        "SELECT operation, command_number, status FROM merchant_commands ORDER BY operation",
-      ),
+      rows({
+        path: files.merchant,
+        sql: "SELECT payment_intent_id FROM merchant_payments",
+      }),
+    ).toHaveLength(1);
+    expect(
+      rows({
+        path: files.merchant,
+        sql: "SELECT operation, command_number, status FROM merchant_commands ORDER BY operation",
+      }),
     ).toEqual([
       { operation: "confirm", command_number: 1, status: "COMPLETED" },
       { operation: "create", command_number: 1, status: "COMPLETED" },
     ]);
     expect(
-      rows(files.paybridge, "SELECT id FROM payment_intents"),
+      rows({ path: files.paybridge, sql: "SELECT id FROM payment_intents" }),
     ).toHaveLength(1);
     expect(
-      rows(files.paybridge, "SELECT id FROM payment_attempts"),
+      rows({ path: files.paybridge, sql: "SELECT id FROM payment_attempts" }),
     ).toHaveLength(1);
   } finally {
     await first.stop();
@@ -108,14 +113,20 @@ test(
     });
     try {
       const order = orderIdentity.assert(
-        await (await post(first.url, "/merchant-a/orders", orderBody)).json(),
+        await (
+          await post({
+            url: first.url,
+            path: "/merchant-a/orders",
+            body: orderBody,
+          })
+        ).json(),
       );
       const path = `/merchant-a/orders/${order.id}/payment`;
-      const pending = post(first.url, path).catch(() => null);
+      const pending = post({ url: first.url, path }).catch(() => null);
       const phase = checkpoint.assert(await first.message());
       expect(phase.kind).toBe("before-completion-commit");
       const started = performance.now();
-      const contended = await post(second.url, path);
+      const contended = await post({ url: second.url, path });
       expect(contended.status).toBe(503);
       expect(contended.headers.get("retry-after")).toBe("1");
       expect(performance.now() - started).toBeLessThan(8000);
@@ -140,17 +151,17 @@ test(
       });
       await first.stop();
       expect(await pending).toBeNull();
-      const recovered = await post(second.url, path);
+      const recovered = await post({ url: second.url, path });
       expect(recovered.status).toBe(201);
       expect(recovered.headers.get("x-merchant-command-id")).toBe(
         phase.commandId,
       );
       expect(
-        rows(files.paybridge, "SELECT id FROM payment_intents"),
+        rows({ path: files.paybridge, sql: "SELECT id FROM payment_intents" }),
       ).toHaveLength(1);
-      expect(rows(files.merchant, "SELECT id FROM merchant_commands")).toEqual([
-        { id: phase.commandId },
-      ]);
+      expect(
+        rows({ path: files.merchant, sql: "SELECT id FROM merchant_commands" }),
+      ).toEqual([{ id: phase.commandId }]);
     } finally {
       await first.stop();
       await second.stop();
@@ -168,19 +179,31 @@ test("a prepared confirmation must be recovered before a new command number is a
   let path: string;
   try {
     const order = orderIdentity.assert(
-      await (await post(setup.url, "/merchant-a/orders", orderBody)).json(),
+      await (
+        await post({
+          url: setup.url,
+          path: "/merchant-a/orders",
+          body: orderBody,
+        })
+      ).json(),
     );
     path = `/merchant-a/orders/${order.id}`;
     expect(
       (
-        await post(setup.url, `${path}/confirm`, {
-          commandNumber: 1,
-          expectedRevision: 1,
-          mockPaymentMethodRef: "pm_mock_approved",
+        await post({
+          url: setup.url,
+          path: `${path}/confirm`,
+          body: {
+            commandNumber: 1,
+            expectedRevision: 1,
+            mockPaymentMethodRef: "pm_mock_approved",
+          },
         })
       ).status,
     ).toBe(409);
-    expect((await post(setup.url, `${path}/payment`)).status).toBe(201);
+    expect(
+      (await post({ url: setup.url, path: `${path}/payment` })).status,
+    ).toBe(201);
   } finally {
     await setup.stop();
   }
@@ -194,32 +217,44 @@ test("a prepared confirmation must be recovered before a new command number is a
     paybridgeUrl: services.url,
   });
   try {
-    const pending = post(first.url, `${path}/confirm`, {
-      commandNumber: 1,
-      expectedRevision: 1,
-      mockPaymentMethodRef: "pm_mock_approved",
+    const pending = post({
+      url: first.url,
+      path: `${path}/confirm`,
+      body: {
+        commandNumber: 1,
+        expectedRevision: 1,
+        mockPaymentMethodRef: "pm_mock_approved",
+      },
     }).catch(() => null);
     const phase = checkpoint.assert(await first.message());
-    const rejected = await post(second.url, `${path}/confirm`, {
-      commandNumber: 2,
-      expectedRevision: 1,
-      mockPaymentMethodRef: "pm_mock_approved",
+    const rejected = await post({
+      url: second.url,
+      path: `${path}/confirm`,
+      body: {
+        commandNumber: 2,
+        expectedRevision: 1,
+        mockPaymentMethodRef: "pm_mock_approved",
+      },
     });
     expect(rejected.status).toBe(409);
     expect(await rejected.json()).toMatchObject({
       error: { code: "command_recovery_required" },
     });
-    expect(rows(files.paybridge, "SELECT id FROM payment_attempts")).toEqual(
-      [],
-    );
+    expect(
+      rows({ path: files.paybridge, sql: "SELECT id FROM payment_attempts" }),
+    ).toEqual([]);
     await first.stop();
     expect(await pending).toBeNull();
     expect(
-      (await post(second.url, `${path}/commands/${phase.commandId}/recover`))
-        .status,
+      (
+        await post({
+          url: second.url,
+          path: `${path}/commands/${phase.commandId}/recover`,
+        })
+      ).status,
     ).toBe(202);
     expect(
-      rows(files.paybridge, "SELECT id FROM payment_attempts"),
+      rows({ path: files.paybridge, sql: "SELECT id FROM payment_attempts" }),
     ).toHaveLength(1);
   } finally {
     await first.stop();

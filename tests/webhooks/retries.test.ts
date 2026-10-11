@@ -33,30 +33,36 @@ test.each([200, 202, 204, 299])(
     );
     const { port } = type({ port: "number" }).assert(endpoint.address());
     const origin = `http://127.0.0.1:${port}`;
-    const api = await startApi(files.paybridge, origin);
+    const api = await startApi({
+      path: files.paybridge,
+      merchantOrigin: origin,
+    });
     let worker: Awaited<ReturnType<typeof startDelivery>> | undefined;
     try {
-      await cancelled(api.url, origin);
+      await cancelled({ url: api.url, merchantOrigin: origin });
       const original = type({
         payment_event_id: "string",
         payload: "string",
       }).assert(
-        rows(
-          files.paybridge,
-          "SELECT payment_event_id,payload FROM webhook_outbox",
-        )[0],
+        rows({
+          path: files.paybridge,
+          sql: "SELECT payment_event_id,payload FROM webhook_outbox",
+        })[0],
       );
       const clock = Math.ceil(Date.now() / 1000) * 1000;
-      worker = await startDelivery(files.paybridge, { base: 2000, cap: 3000 });
-      await advance(worker, clock);
+      worker = await startDelivery({
+        path: files.paybridge,
+        options: { base: 2000, cap: 3000 },
+      });
+      await advance({ worker, epochMs: clock });
       await worker.start();
       for (const [index, increment] of [2000, 5000, 8000].entries()) {
         await expect
           .poll(() =>
-            rows(
-              files.paybridge,
-              "SELECT status,attempt_count,last_error FROM webhook_outbox",
-            ),
+            rows({
+              path: files.paybridge,
+              sql: "SELECT status,attempt_count,last_error FROM webhook_outbox",
+            }),
           )
           .toEqual([
             {
@@ -66,21 +72,21 @@ test.each([200, 202, 204, 299])(
             },
           ]);
         const due = type({ next_attempt_at: "string" }).assert(
-          rows(
-            files.paybridge,
-            "SELECT next_attempt_at FROM webhook_outbox",
-          )[0],
+          rows({
+            path: files.paybridge,
+            sql: "SELECT next_attempt_at FROM webhook_outbox",
+          })[0],
         );
         const expected = clock + increment;
         expect(Date.parse(due.next_attempt_at)).toBe(expected);
-        await advance(worker, expected);
+        await advance({ worker, epochMs: expected });
       }
       await expect
         .poll(() =>
-          rows(
-            files.paybridge,
-            "SELECT status,attempt_count,claim_token,last_error FROM webhook_outbox",
-          ),
+          rows({
+            path: files.paybridge,
+            sql: "SELECT status,attempt_count,claim_token,last_error FROM webhook_outbox",
+          }),
         )
         .toEqual([
           {
@@ -104,7 +110,10 @@ test.each([200, 202, 204, 299])(
         );
       }
       expect(
-        rows(files.paybridge, "SELECT status,revision FROM payment_intents"),
+        rows({
+          path: files.paybridge,
+          sql: "SELECT status,revision FROM payment_intents",
+        }),
       ).toEqual([{ status: "CANCELLED", revision: 2 }]);
     } finally {
       await worker?.stop();

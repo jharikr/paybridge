@@ -1,3 +1,4 @@
+import { safeFailure, type SafeFailure } from "../../contracts/diagnostics.ts";
 import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { type } from "arktype";
@@ -184,11 +185,13 @@ export async function runWebhookWorker({
   checkpoint?: WebhookCheckpoint;
   diagnostic: (value: {
     code: string;
+    failure?: SafeFailure;
     workerId: string;
     eventId?: string;
   }) => void;
 }) {
   while (!signal.aborted) {
+    let operation: SafeFailure["operation"] = "webhook_claim";
     let eventId: string | undefined;
     try {
       const claim = await claimWork({ db, workerId, config, now });
@@ -199,8 +202,10 @@ export async function runWebhookWorker({
         if (Date.parse(claim.expires) - now().getTime() <= config.timeoutMs)
           diagnostic({ code: "webhook_claim_exhausted", workerId, eventId });
         else if (!signal.aborted) {
+          operation = "webhook_deliver";
           const error = await deliver({ claim, config, now });
           await checkpoint?.({ kind: "after-webhook-response", eventId });
+          operation = "webhook_completion";
           const code = await finish({
             db,
             claim,
@@ -215,6 +220,7 @@ export async function runWebhookWorker({
       }
     } catch (cause) {
       diagnostic({
+        failure: safeFailure({ operation, cause }),
         code:
           cause instanceof Error &&
           "transient" in cause &&

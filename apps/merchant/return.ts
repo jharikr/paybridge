@@ -28,8 +28,8 @@ export function registerMerchantReturn({
     "/:merchantFixture/payment-return",
     {
       schema: {
-        params: requestSchema(params),
-        querystring: requestSchema(query),
+        params: requestSchema({ validator: params }),
+        querystring: requestSchema({ validator: query }),
         response: {
           200: {
             ...merchantReturnResult.toJsonSchema(),
@@ -43,7 +43,8 @@ export function registerMerchantReturn({
       const merchant = merchantContext(
         params.assert(request.params).merchantFixture,
       );
-      if (!merchant) throw new MerchantError(404, "payment_not_found");
+      if (!merchant)
+        throw new MerchantError({ status: 404, code: "payment_not_found" });
       return returnPayment({
         db,
         merchant,

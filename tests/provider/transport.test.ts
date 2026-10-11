@@ -27,22 +27,27 @@ test.each([
     await using app = await journey(files);
     await using proxy = await providerProxy({
       upstream: app.mockUrl,
-      reply: (xml, response) => {
+      reply: ({ xml, response }) => {
         response.setHeader("content-type", contentType);
         response.end(xml);
       },
     });
     const { id } = type({ id: "string" }).assert(
-      await (await create(app.url)).json(),
+      await (await create({ url: app.url })).json(),
     );
-    expect((await confirm(app.url, id)).status).toBe(202);
+    expect((await confirm({ url: app.url, id })).status).toBe(202);
     await app.startWorker({ origin: proxy.origin });
     await expect
-      .poll(() => lookup(app.url, id))
+      .poll(() => lookup({ url: app.url, id }))
       .toMatchObject({ status: "SUCCEEDED", revision: 3 });
-    expect(rows(files.paybridge, "SELECT id FROM reconciliations")).toEqual([]);
     expect(
-      rows(files.mockFourcs, "SELECT effect_count FROM mock_transactions"),
+      rows({ path: files.paybridge, sql: "SELECT id FROM reconciliations" }),
+    ).toEqual([]);
+    expect(
+      rows({
+        path: files.mockFourcs,
+        sql: "SELECT effect_count FROM mock_transactions",
+      }),
     ).toEqual([{ effect_count: 1 }]);
   },
 );
@@ -50,11 +55,12 @@ test.each([
 test.each([
   {
     name: "lost connection",
-    reply: (_xml: string, response: ServerResponse) => response.destroy(),
+    reply: ({ response }: { xml: string; response: ServerResponse }) =>
+      response.destroy(),
   },
   {
     name: "aborted partial body",
-    reply: (xml: string, response: ServerResponse) =>
+    reply: ({ xml, response }: { xml: string; response: ServerResponse }) =>
       response.write(xml.slice(0, 100)),
   },
 ])(
@@ -64,11 +70,16 @@ test.each([
     await using app = await journey(files);
     await using proxy = await providerProxy({ upstream: app.mockUrl, reply });
     const { id } = type({ id: "string" }).assert(
-      await (await create(app.url)).json(),
+      await (await create({ url: app.url })).json(),
     );
     expect(
-      (await confirm(app.url, id, { fixture: "pm_mock_delayed_response" }))
-        .status,
+      (
+        await confirm({
+          url: app.url,
+          id,
+          options: { fixture: "pm_mock_delayed_response" },
+        })
+      ).status,
     ).toBe(202);
     const worker = await app.startWorker({
       entrypoint: fileURLToPath(
@@ -81,25 +92,32 @@ test.each([
     const gate = type({ kind: "'after-acceptance'", gateId: "string" }).assert(
       await app.mock.message(),
     );
-    await expireClaim(worker, files.paybridge);
+    await expireClaim({ worker, path: files.paybridge });
     app.mock.child.send({ kind: "release", gateId: gate.gateId });
     expect(await worker.message()).toMatchObject({
       code: "provider_transport_not_applied",
     });
-    expect(await lookup(app.url, id)).toMatchObject({
+    expect(await lookup({ url: app.url, id })).toMatchObject({
       status: "PROCESSING",
       revision: 2,
     });
     expect(
-      rows(
-        files.paybridge,
-        "SELECT type FROM payment_events ORDER BY intent_revision",
-      ),
+      rows({
+        path: files.paybridge,
+        sql: "SELECT type FROM payment_events ORDER BY intent_revision",
+      }),
     ).toEqual([{ type: "PAYMENT_CREATED" }, { type: "ATTEMPT_CREATED" }]);
-    expect(rows(files.paybridge, "SELECT id FROM webhook_outbox")).toEqual([]);
-    expect(rows(files.paybridge, "SELECT id FROM reconciliations")).toEqual([]);
     expect(
-      rows(files.mockFourcs, "SELECT effect_count FROM mock_transactions"),
+      rows({ path: files.paybridge, sql: "SELECT id FROM webhook_outbox" }),
+    ).toEqual([]);
+    expect(
+      rows({ path: files.paybridge, sql: "SELECT id FROM reconciliations" }),
+    ).toEqual([]);
+    expect(
+      rows({
+        path: files.mockFourcs,
+        sql: "SELECT effect_count FROM mock_transactions",
+      }),
     ).toEqual([{ effect_count: 1 }]);
   },
 );
@@ -108,18 +126,19 @@ test.each([
   {
     name: "malformed XML",
     code: "MalformedResponse",
-    reply: (_xml: string, response: ServerResponse) => response.end("<invalid"),
+    reply: ({ response }: { xml: string; response: ServerResponse }) =>
+      response.end("<invalid"),
   },
   {
     name: "oversized body",
     code: "ResponseTooLarge",
-    reply: (_xml: string, response: ServerResponse) =>
+    reply: ({ response }: { xml: string; response: ServerResponse }) =>
       response.end(" ".repeat(18000)),
   },
   {
     name: "invalid HTTP status",
     code: "InvalidHttpResponse",
-    reply: (xml: string, response: ServerResponse) => {
+    reply: ({ xml, response }: { xml: string; response: ServerResponse }) => {
       response.statusCode = 500;
       response.end(xml);
     },
@@ -131,11 +150,15 @@ test.each([
     await using app = await journey(files);
     await using proxy = await providerProxy({ upstream: app.mockUrl, reply });
     const { id } = type({ id: "string" }).assert(
-      await (await create(app.url)).json(),
+      await (await create({ url: app.url })).json(),
     );
     const { paymentAttemptId } = type({ paymentAttemptId: "string" }).assert(
       await (
-        await confirm(app.url, id, { fixture: "pm_mock_delayed_response" })
+        await confirm({
+          url: app.url,
+          id,
+          options: { fixture: "pm_mock_delayed_response" },
+        })
       ).json(),
     );
     const worker = await app.startWorker({
@@ -149,21 +172,21 @@ test.each([
     const gate = type({ kind: "'after-acceptance'", gateId: "string" }).assert(
       await app.mock.message(),
     );
-    await expireClaim(worker, files.paybridge);
+    await expireClaim({ worker, path: files.paybridge });
     app.mock.child.send({ kind: "release", gateId: gate.gateId });
     await expect
       .poll(() =>
-        rows(
-          files.paybridge,
-          "SELECT type FROM payment_events WHERE type = 'PROVIDER_RESPONSE_OBSERVED'",
-        ),
+        rows({
+          path: files.paybridge,
+          sql: "SELECT type FROM payment_events WHERE type = 'PROVIDER_RESPONSE_OBSERVED'",
+        }),
       )
       .toEqual([{ type: "PROVIDER_RESPONSE_OBSERVED" }]);
     expect(await worker.message()).toMatchObject({
       code: "provider_response_observed",
       paymentAttemptId,
     });
-    expect(await lookup(app.url, id)).toMatchObject({
+    expect(await lookup({ url: app.url, id })).toMatchObject({
       status: "PROCESSING",
       revision: 2,
     });
@@ -174,10 +197,10 @@ test.each([
       from_status: "null",
       to_status: "null",
     }).assert(
-      rows(
-        files.paybridge,
-        "SELECT metadata, payment_attempt_id, intent_revision, from_status, to_status FROM payment_events WHERE type = 'PROVIDER_RESPONSE_OBSERVED'",
-      )[0],
+      rows({
+        path: files.paybridge,
+        sql: "SELECT metadata, payment_attempt_id, intent_revision, from_status, to_status FROM payment_events WHERE type = 'PROVIDER_RESPONSE_OBSERVED'",
+      })[0],
     );
     expect(event).toMatchObject({
       payment_attempt_id: paymentAttemptId,
@@ -193,10 +216,17 @@ test.each([
       providerTransactionId: expect.stringMatching(/^[a-f0-9]{16}$/),
       observedAt: expect.any(String),
     });
-    expect(rows(files.paybridge, "SELECT id FROM webhook_outbox")).toEqual([]);
-    expect(rows(files.paybridge, "SELECT id FROM reconciliations")).toEqual([]);
     expect(
-      rows(files.mockFourcs, "SELECT effect_count FROM mock_transactions"),
+      rows({ path: files.paybridge, sql: "SELECT id FROM webhook_outbox" }),
+    ).toEqual([]);
+    expect(
+      rows({ path: files.paybridge, sql: "SELECT id FROM reconciliations" }),
+    ).toEqual([]);
+    expect(
+      rows({
+        path: files.mockFourcs,
+        sql: "SELECT effect_count FROM mock_transactions",
+      }),
     ).toEqual([{ effect_count: 1 }]);
   },
 );
@@ -206,7 +236,7 @@ async function providerProxy({
   reply,
 }: {
   upstream: string;
-  reply: (xml: string, response: ServerResponse) => void;
+  reply: ({ xml, response }: { xml: string; response: ServerResponse }) => void;
 }) {
   const requests: {
     url: string | undefined;
@@ -235,7 +265,7 @@ async function providerProxy({
         body,
       });
       response.setHeader("content-type", "text/xml; charset=utf-8");
-      reply(await upstreamResponse.text(), response);
+      reply({ xml: await upstreamResponse.text(), response });
     })().catch(() => {
       response.destroy();
     });
@@ -259,7 +289,7 @@ test("wire requests preserve exact integer amounts and merchant identities while
   await using app = await journey(files);
   await using proxy = await providerProxy({
     upstream: app.mockUrl,
-    reply: (xml, response) =>
+    reply: ({ xml, response }) =>
       response.end(
         xml
           .replace(
@@ -310,15 +340,23 @@ test("wire requests preserve exact integer amounts and merchant identities while
   ]) {
     const key = `amount-${amount}`;
     const { id } = type({ id: "string" }).assert(
-      await (await create(app.url, { key, amount, merchant })).json(),
+      await (
+        await create({ url: app.url, options: { key, amount, merchant } })
+      ).json(),
     );
     expect(
-      (await confirm(app.url, id, { key: `confirm-${key}`, merchant })).status,
+      (
+        await confirm({
+          url: app.url,
+          id,
+          options: { key: `confirm-${key}`, merchant },
+        })
+      ).status,
     ).toBe(202);
     await expect
-      .poll(() => lookup(app.url, id, merchant))
+      .poll(() => lookup({ url: app.url, id, merchant }))
       .toMatchObject({ status: "SUCCEEDED", revision: 3 });
-    expect(validates(await lookup(app.url, id, merchant))).toBe(true);
+    expect(validates(await lookup({ url: app.url, id, merchant }))).toBe(true);
     const wire = proxy.requests.at(-1);
     expect(wire).toMatchObject({
       url: "/TranSvcs/ssis.asmx",
@@ -338,10 +376,10 @@ test("wire requests preserve exact integer amounts and merchant identities while
       provider_invoice: "string",
       provider_account_ref: "string",
     }).assert(
-      rows(
-        files.paybridge,
-        `SELECT a.provider_transaction_id, a.provider_account_ref, p.provider_invoice FROM payment_attempts a JOIN payment_intents p ON p.id = a.payment_intent_id WHERE p.amount = ${amount}`,
-      )[0],
+      rows({
+        path: files.paybridge,
+        sql: `SELECT a.provider_transaction_id, a.provider_account_ref, p.provider_invoice FROM payment_attempts a JOIN payment_intents p ON p.id = a.payment_intent_id WHERE p.amount = ${amount}`,
+      })[0],
     );
     expect(stored.provider_transaction_id).toMatch(/^[A-Za-z0-9]{1,16}$/);
     expect(stored.provider_invoice).toMatch(/^[A-Za-z0-9]{1,16}$/);
@@ -352,10 +390,10 @@ test("wire requests preserve exact integer amounts and merchant identities while
       `<Invoice>${stored.provider_invoice}</Invoice>`,
     );
     expect(
-      rows(
-        files.mockFourcs,
-        `SELECT provider_account, tran_id, invoice, amount_minor, currency FROM mock_transactions WHERE amount_minor = ${amount}`,
-      ),
+      rows({
+        path: files.mockFourcs,
+        sql: `SELECT provider_account, tran_id, invoice, amount_minor, currency FROM mock_transactions WHERE amount_minor = ${amount}`,
+      }),
     ).toEqual([
       {
         provider_account: stored.provider_account_ref,
@@ -368,14 +406,17 @@ test("wire requests preserve exact integer amounts and merchant identities while
   }
   expect(
     JSON.stringify(
-      rows(files.paybridge, "SELECT metadata FROM payment_events"),
+      rows({
+        path: files.paybridge,
+        sql: "SELECT metadata FROM payment_events",
+      }),
     ),
   ).not.toContain("synthetic-secret");
   expect(
-    rows(
-      files.paybridge,
-      "SELECT provider_host_reference FROM payment_attempts",
-    ),
+    rows({
+      path: files.paybridge,
+      sql: "SELECT provider_host_reference FROM payment_attempts",
+    }),
   ).toEqual(
     Array.from({ length: 5 }, () => ({ provider_host_reference: null })),
   );
@@ -465,28 +506,31 @@ test.each(corruptions)(
     await using app = await journey(files);
     await using proxy = await providerProxy({
       upstream: app.mockUrl,
-      reply: (xml, response) => response.end(transform(xml)),
+      reply: ({ xml, response }) => response.end(transform(xml)),
     });
     const { id } = type({ id: "string" }).assert(
-      await (await create(app.url)).json(),
+      await (await create({ url: app.url })).json(),
     );
-    expect((await confirm(app.url, id)).status).toBe(202);
+    expect((await confirm({ url: app.url, id })).status).toBe(202);
     const worker = await app.startWorker({ origin: proxy.origin });
     await expect
-      .poll(() => lookup(app.url, id))
+      .poll(() => lookup({ url: app.url, id }))
       .toMatchObject({
         status: "UNKNOWN",
         latestAttempt: { failureCode: code },
       });
     expect(
-      rows(
-        files.mockFourcs,
-        "SELECT final_outcome, effect_count FROM mock_transactions",
-      ),
+      rows({
+        path: files.mockFourcs,
+        sql: "SELECT final_outcome, effect_count FROM mock_transactions",
+      }),
     ).toEqual([{ final_outcome: "Approved", effect_count: 1 }]);
-    expect(rows(files.paybridge, "SELECT status FROM reconciliations")).toEqual(
-      [{ status: "REQUIRED" }],
-    );
+    expect(
+      rows({
+        path: files.paybridge,
+        sql: "SELECT status FROM reconciliations",
+      }),
+    ).toEqual([{ status: "REQUIRED" }]);
     expect(worker.output()).not.toMatch(
       /Envelope|mock-provider-key|file:\/\/|ErrorMessage/,
     );
@@ -497,7 +541,7 @@ test.each([
   {
     name: "streamed bytes",
     code: "ResponseTooLarge",
-    reply: (_xml: string, response: ServerResponse) => {
+    reply: ({ response }: { xml: string; response: ServerResponse }) => {
       response.write(" ".repeat(9000));
       response.end(" ".repeat(9000));
     },
@@ -505,14 +549,14 @@ test.each([
   {
     name: "unfinished response body",
     code: "Timeout",
-    reply: (xml: string, response: ServerResponse) => {
+    reply: ({ xml, response }: { xml: string; response: ServerResponse }) => {
       response.write(xml.slice(0, 100));
     },
   },
   {
     name: "HTTP error",
     code: "InvalidHttpResponse",
-    reply: (xml: string, response: ServerResponse) => {
+    reply: ({ xml, response }: { xml: string; response: ServerResponse }) => {
       response.statusCode = 500;
       response.end(xml);
     },
@@ -520,7 +564,7 @@ test.each([
   {
     name: "wrong media type",
     code: "InvalidHttpResponse",
-    reply: (xml: string, response: ServerResponse) => {
+    reply: ({ xml, response }: { xml: string; response: ServerResponse }) => {
       response.setHeader("content-type", "text/plain");
       response.end(xml);
     },
@@ -528,7 +572,7 @@ test.each([
   {
     name: "unsupported quoted charset",
     code: "InvalidHttpResponse",
-    reply: (xml: string, response: ServerResponse) => {
+    reply: ({ xml, response }: { xml: string; response: ServerResponse }) => {
       response.setHeader("content-type", 'text/xml; charset="iso-8859-1"');
       response.end(xml);
     },
@@ -536,7 +580,7 @@ test.each([
   {
     name: "unsupported spaced charset",
     code: "InvalidHttpResponse",
-    reply: (xml: string, response: ServerResponse) => {
+    reply: ({ xml, response }: { xml: string; response: ServerResponse }) => {
       response.setHeader("content-type", 'text/xml; charset = "iso-8859-1"');
       response.end(xml);
     },
@@ -544,13 +588,13 @@ test.each([
   {
     name: "invalid UTF-8",
     code: "MalformedResponse",
-    reply: (_xml: string, response: ServerResponse) =>
+    reply: ({ response }: { xml: string; response: ServerResponse }) =>
       response.end(Buffer.from([0xc0, 0x80])),
   },
   {
     name: "redirect",
     code: "TransportFailure",
-    reply: (_xml: string, response: ServerResponse) => {
+    reply: ({ response }: { xml: string; response: ServerResponse }) => {
       response.writeHead(307, { location: "https://example.com/live" });
       response.end();
     },
@@ -560,15 +604,18 @@ test.each([
   await using app = await journey(files);
   await using proxy = await providerProxy({ upstream: app.mockUrl, reply });
   const { id } = type({ id: "string" }).assert(
-    await (await create(app.url)).json(),
+    await (await create({ url: app.url })).json(),
   );
-  expect((await confirm(app.url, id)).status).toBe(202);
+  expect((await confirm({ url: app.url, id })).status).toBe(202);
   await app.startWorker({ origin: proxy.origin });
   await expect
-    .poll(() => lookup(app.url, id), { timeout: 2000 })
+    .poll(() => lookup({ url: app.url, id }), { timeout: 2000 })
     .toMatchObject({ status: "UNKNOWN", latestAttempt: { failureCode: code } });
   expect(
-    rows(files.paybridge, "SELECT status, reason FROM reconciliations"),
+    rows({
+      path: files.paybridge,
+      sql: "SELECT status, reason FROM reconciliations",
+    }),
   ).toEqual([{ status: "REQUIRED", reason: code }]);
 });
 

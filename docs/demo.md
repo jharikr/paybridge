@@ -15,7 +15,7 @@ An explicit parent keeps evidence outside a disposable checkout:
 bun run demo --data-parent /absolute/private/data-parent
 ```
 
-Each invocation exclusively creates `demo-<lowercase-uuid>` under that parent. It never opens an existing run directory as a fresh database. The parent may already exist; keep it private. New run directories use mode 0700 and files use 0600. Startup allocates loopback ports before seeding the fixture origins. `--paybridge-port 3100` can reserve a specific available Paybridge port; the other ports remain automatically allocated. A busy port produces a retained failed result and leaves the listener alone.
+Each invocation exclusively creates `demo-<lowercase-uuid>` under that parent. It never opens an existing run directory as a fresh database. The parent may already exist; keep it private. New run directories use mode 0700 and files use 0600. Startup allocates loopback ports before seeding the fixture origins. Fresh merchant A returns use `127.0.0.1` and merchant B returns use `localhost` at the same allocated merchant port. Both hosts reach one merchant listener and have distinct URL origins. The manifest records both return origins. `--paybridge-port 3100` can reserve a specific available Paybridge port; the other ports remain automatically allocated. A busy port produces a retained failed result and leaves the listener alone.
 
 The script prints only a started/completed/failed event, its retained directory, and a fixed failure code when applicable. It keeps capabilities, cached creation bytes, credentials, signatures, raw SOAP and card-shaped fields out of output. The databases necessarily contain sensitive fixture configuration and cached capability-bearing acknowledgments. Protect the directory even though every transaction is synthetic.
 
@@ -35,13 +35,13 @@ The standalone journey is representative. The focused suites below separately pr
 
 ## Retained evidence and interruption
 
-| File | Contents |
-| --- | --- |
-| `result.json` | Completion or fixed failure code; successful runs include allowlisted IDs, states and aggregate results. |
-| `manifest.json` | Fixed origins, absolute database paths, last completed stage and start/stop records for owned application PIDs. Writes replace the prior manifest atomically. |
-| `implementation.json` | Node version, capture time and SHA-256 of all files under `apps/`, `contracts/`, `scripts/` and `tests/`, including documentation there, plus `package.json`, `bun.lock` and `tsconfig.json`. Root `README.md`, `AGENTS.md` and `docs/` are excluded. |
-| `paybridge.db`, `merchant.db`, `mock-fourcs.db` | Retained commands, records, signed receipts, financial history and independent mock ledger. SQLite journal sidecars may remain after a crash and belong with their database. |
-| `operator/*.json` | Exact synthetic list/start/resolve/replay/conflict commands, including the rejected absent-evidence command. |
+| File                                            | Contents                                                                                                                                                                                                                                              |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `result.json`                                   | Completion or fixed failure code; successful runs include allowlisted IDs, states and aggregate results.                                                                                                                                              |
+| `manifest.json`                                 | Fixed origins, absolute database paths, last completed stage and start/stop records for owned application PIDs. Writes replace the prior manifest atomically.                                                                                         |
+| `implementation.json`                           | Node version, capture time and SHA-256 of all files under `apps/`, `contracts/`, `scripts/` and `tests/`, including documentation there, plus `package.json`, `bun.lock` and `tsconfig.json`. Root `README.md`, `AGENTS.md` and `docs/` are excluded. |
+| `paybridge.db`, `merchant.db`, `mock-fourcs.db` | Retained commands, records, signed receipts, financial history and independent mock ledger. SQLite journal sidecars may remain after a crash and belong with their database.                                                                          |
+| `operator/*.json`                               | Exact synthetic list/start/resolve/replay/conflict commands, including the rejected absent-evidence command.                                                                                                                                          |
 
 The process manifest covers the five long-running application roles and their restarts. Short-lived inspection/reconciliation commands are awaited and stopped by their caller. On normal success, failure, SIGTERM or SIGINT, the demo stops only processes it created and retains the directory. It checks interruption at bounded phase boundaries; an active HTTP call, SQLite lock wait or polling phase can finish first. SIGKILL of the demo driver or host failure cannot execute cleanup. Preserve its manifest and records and establish actual process ownership before manually stopping a survivor. PID reuse means a historic PID alone is insufficient evidence of ownership.
 
@@ -73,6 +73,8 @@ node apps/paybridge/worker.ts "$paybridge_demo_dir/paybridge.db" http://127.0.0.
 
 node apps/merchant/worker.ts "$paybridge_demo_dir/merchant.db"
 ```
+
+For these manual commands, merchant A permits `http://127.0.0.1:3101` and merchant B permits `http://localhost:3101` for returns. The merchant stores each context's matching return URL. Supplying the other context's origin to payment creation is rejected. Both hostnames must resolve to loopback on the local machine. Existing seeded rows, including earlier runs that used one return origin, remain unchanged on restart.
 
 Defaults are documented in [provider work](provider-worker.md), [webhook delivery](webhook-delivery.md), and [inbox processing](merchant-inbox.md). The automated demo uses a 1-second provider deadline below a 5-second lease, 25-ms polling and bounded 100-to-500-ms delivery/inbox retries. No production fault endpoint is enabled. APIs report readiness through parent IPC; only the mock prints a listening message when run directly. The demo already implements bounded readiness for all five processes.
 

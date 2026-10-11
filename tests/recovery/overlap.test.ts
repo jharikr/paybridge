@@ -24,11 +24,16 @@ test("two worker processes compete for one claim without creating another financ
     origin: app.mockUrl,
   });
   const { id } = type({ id: "string" }).assert(
-    await (await create(app.url)).json(),
+    await (await create({ url: app.url })).json(),
   );
   expect(
-    (await confirm(app.url, id, { fixture: "pm_mock_delayed_response" }))
-      .status,
+    (
+      await confirm({
+        url: app.url,
+        id,
+        options: { fixture: "pm_mock_delayed_response" },
+      })
+    ).status,
   ).toBe(202);
   await Promise.all([a.start(), b.start()]);
   const gate = mockGate.assert(await app.mock.message());
@@ -36,7 +41,7 @@ test("two worker processes compete for one claim without creating another financ
   const owner = claim(files.paybridge);
   expect([a.workerId, b.workerId]).toContain(owner.locked_by);
   expect(owner.attempt_count).toBe(1);
-  expect(await lookup(app.url, id)).toMatchObject({
+  expect(await lookup({ url: app.url, id })).toMatchObject({
     status: "PROCESSING",
     revision: 2,
   });
@@ -45,7 +50,7 @@ test("two worker processes compete for one claim without creating another financ
   ]);
   app.mock.child.send({ kind: "release", gateId: gate.gateId });
   await expect
-    .poll(() => lookup(app.url, id))
+    .poll(() => lookup({ url: app.url, id }))
     .toMatchObject({ status: "SUCCEEDED", revision: 3 });
   const saved = records(files.paybridge);
   expect(saved.work).toMatchObject([
@@ -74,11 +79,16 @@ test("a delayed old request cannot overwrite a definite result committed by its 
     origin: app.mockUrl,
   });
   const { id } = type({ id: "string" }).assert(
-    await (await create(app.url)).json(),
+    await (await create({ url: app.url })).json(),
   );
   expect(
-    (await confirm(app.url, id, { fixture: "pm_mock_held_before_acceptance" }))
-      .status,
+    (
+      await confirm({
+        url: app.url,
+        id,
+        options: { fixture: "pm_mock_held_before_acceptance" },
+      })
+    ).status,
   ).toBe(202);
   const original = identity(files.paybridge);
   await a.start();
@@ -100,9 +110,9 @@ test("a delayed old request cannot overwrite a definite result committed by its 
   expect(newer.gateId).not.toBe(older.gateId);
   app.mock.child.send({ kind: "release", gateId: newer.gateId });
   await expect
-    .poll(() => lookup(app.url, id))
+    .poll(() => lookup({ url: app.url, id }))
     .toMatchObject({ status: "SUCCEEDED", revision: 3 });
-  const snapshot = await lookup(app.url, id);
+  const snapshot = await lookup({ url: app.url, id });
   const saved = records(files.paybridge);
   const accepted = ledger(files.mockFourcs);
   expect(accepted).toMatchObject([
@@ -142,7 +152,7 @@ test("a delayed old request cannot overwrite a definite result committed by its 
     failureCode: "DuplicateTransaction",
     contradictory: false,
   });
-  expect(await lookup(app.url, id)).toEqual(snapshot);
+  expect(await lookup({ url: app.url, id })).toEqual(snapshot);
   expect(after.cases).toEqual([]);
   expect(after.webhooks).toHaveLength(1);
   expect(ledger(files.mockFourcs)).toEqual(accepted);
@@ -160,10 +170,14 @@ test("received approval after duplicate recovery preserves UNKNOWN and its finan
     origin: app.mockUrl,
   });
   const { id } = type({ id: "string" }).assert(
-    await (await create(app.url)).json(),
+    await (await create({ url: app.url })).json(),
   );
-  const ack = await confirm(app.url, id, {
-    fixture: "pm_mock_delayed_response",
+  const ack = await confirm({
+    url: app.url,
+    id,
+    options: {
+      fixture: "pm_mock_delayed_response",
+    },
   });
   expect(ack.status).toBe(202);
   const bytes = await ack.text();
@@ -183,10 +197,10 @@ test("received approval after duplicate recovery preserves UNKNOWN and its finan
   await b.start();
   await claimed(b);
   await expect
-    .poll(() => lookup(app.url, id))
+    .poll(() => lookup({ url: app.url, id }))
     .toMatchObject({ status: "UNKNOWN", revision: 3 });
   const before = records(files.paybridge);
-  const snapshot = await lookup(app.url, id);
+  const snapshot = await lookup({ url: app.url, id });
   expect(before.cases).toHaveLength(1);
   expect(before.webhooks).toMatchObject([{ event_type: "payment.unknown" }]);
   app.mock.child.send({ kind: "release", gateId: gate.gateId });
@@ -222,16 +236,24 @@ test("received approval after duplicate recovery preserves UNKNOWN and its finan
     },
     observedAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
   });
-  expect(await lookup(app.url, id)).toEqual(snapshot);
+  expect(await lookup({ url: app.url, id })).toEqual(snapshot);
   expect(ledger(files.mockFourcs)).toEqual(provider);
   expect(
     await (
-      await confirm(app.url, id, { fixture: "pm_mock_delayed_response" })
+      await confirm({
+        url: app.url,
+        id,
+        options: { fixture: "pm_mock_delayed_response" },
+      })
     ).text(),
   ).toBe(bytes);
-  const rejected = await confirm(app.url, id, {
-    key: "fresh-while-unknown",
-    revision: 3,
+  const rejected = await confirm({
+    url: app.url,
+    id,
+    options: {
+      key: "fresh-while-unknown",
+      revision: 3,
+    },
   });
   expect(rejected.status).toBe(409);
   expect(await rejected.json()).toMatchObject({
@@ -240,15 +262,23 @@ test("received approval after duplicate recovery preserves UNKNOWN and its finan
   await a.stop();
   await b.advance(epoch + 60000);
   const marker = type({ id: "string" }).assert(
-    await (await create(app.url, { key: "poll-marker" })).json(),
+    await (
+      await create({ url: app.url, options: { key: "poll-marker" } })
+    ).json(),
   );
   expect(
-    (await confirm(app.url, marker.id, { key: "marker-confirm" })).status,
+    (
+      await confirm({
+        url: app.url,
+        id: marker.id,
+        options: { key: "marker-confirm" },
+      })
+    ).status,
   ).toBe(202);
   await expect
-    .poll(() => lookup(app.url, marker.id))
+    .poll(() => lookup({ url: app.url, id: marker.id }))
     .toMatchObject({ status: "SUCCEEDED", revision: 3 });
-  expect(await lookup(app.url, id)).toEqual(snapshot);
+  expect(await lookup({ url: app.url, id })).toEqual(snapshot);
   const polled = records(files.paybridge);
   for (const key of [
     "attempts",
@@ -280,11 +310,16 @@ test("a stale token cannot finish a replacement claim while the payment is PROCE
     hold: "after-claim",
   });
   const { id } = type({ id: "string" }).assert(
-    await (await create(app.url)).json(),
+    await (await create({ url: app.url })).json(),
   );
   expect(
-    (await confirm(app.url, id, { fixture: "pm_mock_delayed_response" }))
-      .status,
+    (
+      await confirm({
+        url: app.url,
+        id,
+        options: { fixture: "pm_mock_delayed_response" },
+      })
+    ).status,
   ).toBe(202);
   const original = identity(files.paybridge);
   await a.start();
@@ -303,7 +338,7 @@ test("a stale token cannot finish a replacement claim while the payment is PROCE
   expect(Date.parse(replacement.lease_expires_at)).toBeGreaterThan(
     epoch + 5000,
   );
-  expect(await lookup(app.url, id)).toMatchObject({
+  expect(await lookup({ url: app.url, id })).toMatchObject({
     status: "PROCESSING",
     revision: 2,
   });
@@ -315,7 +350,7 @@ test("a stale token cannot finish a replacement claim while the payment is PROCE
     paymentAttemptId: original.payment_attempt_id,
   });
   expect(claim(files.paybridge)).toEqual(replacement);
-  expect(await lookup(app.url, id)).toMatchObject({
+  expect(await lookup({ url: app.url, id })).toMatchObject({
     status: "PROCESSING",
     revision: 2,
     latestAttempt: { status: "PROCESSING" },
@@ -353,7 +388,7 @@ test("a stale token cannot finish a replacement claim while the payment is PROCE
   });
   b.release();
   await expect
-    .poll(() => lookup(app.url, id))
+    .poll(() => lookup({ url: app.url, id }))
     .toMatchObject({ status: "UNKNOWN", revision: 3 });
   expect(identity(files.paybridge)).toEqual(original);
   const final = records(files.paybridge);
@@ -374,7 +409,7 @@ test("a stale token cannot finish a replacement claim while the payment is PROCE
     },
   ]);
   expect(ledger(files.mockFourcs)).toMatchObject([{ effect_count: 1 }]);
-  expect(rows(files.paybridge, "SELECT id FROM payment_attempts")).toHaveLength(
-    1,
-  );
+  expect(
+    rows({ path: files.paybridge, sql: "SELECT id FROM payment_attempts" }),
+  ).toHaveLength(1);
 }, 20000);

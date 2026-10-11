@@ -21,27 +21,49 @@ test("inbox transaction failure rolls back the snapshot and paid effect, then re
   let worker: Awaited<ReturnType<typeof controlledInbox>> | undefined;
   let recovered: Awaited<ReturnType<typeof startInbox>> | undefined;
   try {
-    const { payment, path } = await boundOrder(merchant.url);
-    await post(merchant.url, `${path}/confirm`, {
-      commandNumber: 1,
-      expectedRevision: 1,
-      mockPaymentMethodRef: "pm_mock_approved",
+    const { payment, path } = await boundOrder({ url: merchant.url });
+    await post({
+      url: merchant.url,
+      path: `${path}/confirm`,
+      body: {
+        commandNumber: 1,
+        expectedRevision: 1,
+        mockPaymentMethodRef: "pm_mock_approved",
+      },
     });
     await services.startWorker();
     await expect
-      .poll(async () => (await lookup(services.url, payment.id)).status)
+      .poll(
+        async () =>
+          (await lookup({ url: services.url, id: payment.id })).status,
+      )
       .toBe("SUCCEEDED");
     const [event] = events(files.paybridge);
     if (!event) throw new Error("Expected financial event");
-    expect((await deliver(merchant.url, event.payload)).status).toBe(204);
+    expect(
+      (await deliver({ url: merchant.url, body: event.payload })).status,
+    ).toBe(204);
     const before = merchantRecords(files.merchant);
-    worker = await controlledInbox(files.merchant, "rollback");
+    worker = await controlledInbox({ path: files.merchant, held: "rollback" });
     await worker.start();
     await expect
       .poll(() =>
-        rows(files.merchant, "SELECT status,last_error FROM webhook_inbox"),
+        rows({
+          path: files.merchant,
+          sql: "SELECT status,last_error FROM webhook_inbox",
+        }),
       )
       .toEqual([{ status: "PENDING", last_error: "inbox_application_failed" }]);
+    const diagnostic = await worker.message();
+    expect(diagnostic).toMatchObject({
+      failure: {
+        operation: "inbox_application",
+        causes: ["type_error", "SQLITE_BUSY", "reference_error"],
+      },
+    });
+    expect(JSON.stringify(diagnostic) + worker.output()).not.toMatch(
+      /sensitive|<SOAP>|credential=|token=/,
+    );
     const failed = merchantRecords(files.merchant);
     expect(failed.orders).toEqual(before.orders);
     expect(failed.payments).toEqual(before.payments);
@@ -49,13 +71,18 @@ test("inbox transaction failure rolls back the snapshot and paid effect, then re
     await worker.stop();
     recovered = await startInbox(files.merchant);
     await expect
-      .poll(() => rows(files.merchant, "SELECT status FROM webhook_inbox"))
+      .poll(() =>
+        rows({ path: files.merchant, sql: "SELECT status FROM webhook_inbox" }),
+      )
       .toEqual([{ status: "PROCESSED" }]);
-    expect(rows(files.merchant, "SELECT state FROM orders")).toEqual([
-      { state: "PAID" },
-    ]);
     expect(
-      rows(files.merchant, "SELECT payload,last_error FROM webhook_inbox"),
+      rows({ path: files.merchant, sql: "SELECT state FROM orders" }),
+    ).toEqual([{ state: "PAID" }]);
+    expect(
+      rows({
+        path: files.merchant,
+        sql: "SELECT payload,last_error FROM webhook_inbox",
+      }),
     ).toEqual([
       { payload: event.payload, last_error: "inbox_application_failed" },
     ]);
@@ -81,21 +108,30 @@ for (const held of [
     let worker: Awaited<ReturnType<typeof controlledInbox>> | undefined;
     let restarted: Awaited<ReturnType<typeof startInbox>> | undefined;
     try {
-      const { payment, path } = await boundOrder(merchant.url);
-      await post(merchant.url, `${path}/confirm`, {
-        commandNumber: 1,
-        expectedRevision: 1,
-        mockPaymentMethodRef: "pm_mock_approved",
+      const { payment, path } = await boundOrder({ url: merchant.url });
+      await post({
+        url: merchant.url,
+        path: `${path}/confirm`,
+        body: {
+          commandNumber: 1,
+          expectedRevision: 1,
+          mockPaymentMethodRef: "pm_mock_approved",
+        },
       });
       await services.startWorker();
       await expect
-        .poll(async () => (await lookup(services.url, payment.id)).status)
+        .poll(
+          async () =>
+            (await lookup({ url: services.url, id: payment.id })).status,
+        )
         .toBe("SUCCEEDED");
       const [event] = events(files.paybridge);
       if (!event) throw new Error("Expected financial event");
-      expect((await deliver(merchant.url, event.payload)).status).toBe(204);
+      expect(
+        (await deliver({ url: merchant.url, body: event.payload })).status,
+      ).toBe(204);
       const before = merchantRecords(files.merchant);
-      worker = await controlledInbox(files.merchant, held);
+      worker = await controlledInbox({ path: files.merchant, held });
       await worker.start();
       expect(await worker.message()).toEqual({
         kind: held,
@@ -113,9 +149,16 @@ for (const held of [
       }
       restarted = await startInbox(files.merchant);
       await expect
-        .poll(() => rows(files.merchant, "SELECT status FROM webhook_inbox"), {
-          timeout: 3000,
-        })
+        .poll(
+          () =>
+            rows({
+              path: files.merchant,
+              sql: "SELECT status FROM webhook_inbox",
+            }),
+          {
+            timeout: 3000,
+          },
+        )
         .toEqual([{ status: "PROCESSED" }]);
       const recovered = merchantRecords(files.merchant);
       expect(recovered.inbox).toMatchObject([
@@ -135,7 +178,9 @@ for (const held of [
         { status: "SUCCEEDED", last_applied_revision: 3 },
       ]);
       if (held === "after-inbox-completion") expect(recovered).toEqual(killed);
-      expect((await deliver(merchant.url, event.payload)).status).toBe(204);
+      expect(
+        (await deliver({ url: merchant.url, body: event.payload })).status,
+      ).toBe(204);
       expect(
         await (
           await fetch(
@@ -145,7 +190,10 @@ for (const held of [
       ).toMatchObject({ state: "PAID" });
       expect(merchantRecords(files.merchant)).toEqual(recovered);
       expect(
-        rows(files.mockFourcs, "SELECT effect_count FROM mock_transactions"),
+        rows({
+          path: files.mockFourcs,
+          sql: "SELECT effect_count FROM mock_transactions",
+        }),
       ).toEqual([{ effect_count: 1 }]);
     } finally {
       await worker?.stop();

@@ -52,18 +52,25 @@ export function startNodeProcess({
         throw new Error("Only one process message reader may wait at a time");
       return new Promise((resolve, rejectMessage) => {
         const timeout = setTimeout(
-          () => finish(new Error(`Process signal timed out\n${output}`)),
+          () =>
+            finish({ error: new Error(`Process signal timed out\n${output}`) }),
           10_000,
         );
-        const finish = (error?: Error, value?: unknown) => {
+        const finish = ({
+          error,
+          value,
+        }: {
+          error?: Error;
+          value?: unknown;
+        }) => {
           clearTimeout(timeout);
           receive = undefined;
           reject = undefined;
           if (error) rejectMessage(error);
           else resolve(value);
         };
-        receive = (value) => finish(undefined, value);
-        reject = (error) => finish(error);
+        receive = (value) => finish({ value });
+        reject = (error) => finish({ error });
       });
     },
     async stop() {

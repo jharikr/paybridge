@@ -147,16 +147,17 @@ export async function createMerchantApp({
   const orderParams = merchantParams.merge({ orderId });
   function context(value: unknown) {
     const merchant = merchantContext(value);
-    if (!merchant) throw new MerchantError(404, "order_not_found");
+    if (!merchant)
+      throw new MerchantError({ status: 404, code: "order_not_found" });
     return merchant;
   }
   app.post(
     "/:merchantFixture/orders",
     {
       schema: {
-        params: requestSchema(merchantParams),
-        querystring: requestSchema(empty),
-        body: requestSchema(createOrderInput),
+        params: requestSchema({ validator: merchantParams }),
+        querystring: requestSchema({ validator: empty }),
+        body: requestSchema({ validator: createOrderInput }),
         response: {
           200: orderResponse,
           201: orderResponse,
@@ -178,8 +179,8 @@ export async function createMerchantApp({
     "/:merchantFixture/orders/:orderId",
     {
       schema: {
-        params: requestSchema(orderParams),
-        querystring: requestSchema(empty),
+        params: requestSchema({ validator: orderParams }),
+        querystring: requestSchema({ validator: empty }),
         response: { 200: orderResponse, ...errors },
       },
     },
@@ -196,13 +197,14 @@ export async function createMerchantApp({
     "/:merchantFixture/orders/:orderId/payment",
     {
       schema: {
-        params: requestSchema(orderParams),
-        querystring: requestSchema(empty),
+        params: requestSchema({ validator: orderParams }),
+        querystring: requestSchema({ validator: empty }),
         response: { 201: creationResponse, ...errors },
       },
     },
     async (request, reply) => {
-      if (request.body !== undefined) return sendError(reply, request.id);
+      if (request.body !== undefined)
+        return sendError({ reply, requestId: request.id });
       const params = orderParams.assert(request.params);
       const merchant = context(params.merchantFixture);
       const command = await prepareCreation({
@@ -217,7 +219,7 @@ export async function createMerchantApp({
         paybridgeOrigin,
         ...(checkpoint ? { checkpoint } : {}),
       });
-      return sendAcknowledgment(reply, result);
+      return sendAcknowledgment({ reply, result });
     },
   );
   registerOpenApi(app);
@@ -225,8 +227,8 @@ export async function createMerchantApp({
     "/:merchantFixture/orders/:orderId/commands",
     {
       schema: {
-        params: requestSchema(orderParams),
-        querystring: requestSchema(empty),
+        params: requestSchema({ validator: orderParams }),
+        querystring: requestSchema({ validator: empty }),
         response: {
           200: {
             ...merchantCommandList.toJsonSchema(),
@@ -250,8 +252,8 @@ export async function createMerchantApp({
     "/:merchantFixture/orders/:orderId/commands/:commandId/recover",
     {
       schema: {
-        params: requestSchema(recoveryParams),
-        querystring: requestSchema(empty),
+        params: requestSchema({ validator: recoveryParams }),
+        querystring: requestSchema({ validator: empty }),
         response: {
           201: creationResponse,
           202: confirmationResponse,
@@ -260,7 +262,8 @@ export async function createMerchantApp({
       },
     },
     async (request, reply) => {
-      if (request.body !== undefined) return sendError(reply, request.id);
+      if (request.body !== undefined)
+        return sendError({ reply, requestId: request.id });
       const params = recoveryParams.assert(request.params);
       const merchant = context(params.merchantFixture);
       const command = await recoverCommand({
@@ -276,15 +279,15 @@ export async function createMerchantApp({
         paybridgeOrigin,
         ...(checkpoint ? { checkpoint } : {}),
       });
-      return sendAcknowledgment(reply, result);
+      return sendAcknowledgment({ reply, result });
     },
   );
   app.get(
     "/:merchantFixture/orders/:orderId/payment",
     {
       schema: {
-        params: requestSchema(orderParams),
-        querystring: requestSchema(empty),
+        params: requestSchema({ validator: orderParams }),
+        querystring: requestSchema({ validator: empty }),
         response: {
           200: { ...paymentSnapshot.toJsonSchema(), headers: securityHeaders },
           ...errors,
@@ -310,9 +313,9 @@ export async function createMerchantApp({
     "/:merchantFixture/orders/:orderId/confirm",
     {
       schema: {
-        params: requestSchema(orderParams),
-        querystring: requestSchema(empty),
-        body: requestSchema(merchantConfirmationInput),
+        params: requestSchema({ validator: orderParams }),
+        querystring: requestSchema({ validator: empty }),
+        body: requestSchema({ validator: merchantConfirmationInput }),
         response: { 202: confirmationResponse, ...errors },
       },
     },
@@ -332,7 +335,7 @@ export async function createMerchantApp({
         paybridgeOrigin,
         ...(checkpoint ? { checkpoint } : {}),
       });
-      return sendAcknowledgment(reply, result);
+      return sendAcknowledgment({ reply, result });
     },
   );
   registerMerchantReturn({
@@ -357,7 +360,13 @@ export async function createMerchantApp({
   return app;
 }
 
-function sendError(reply: FastifyReply, requestId: string) {
+function sendError({
+  reply,
+  requestId,
+}: {
+  reply: FastifyReply;
+  requestId: string;
+}) {
   return reply.code(400).send({
     error: {
       code: "invalid_request",
@@ -366,10 +375,13 @@ function sendError(reply: FastifyReply, requestId: string) {
     },
   });
 }
-function sendAcknowledgment(
-  reply: FastifyReply,
-  result: Awaited<ReturnType<typeof executeCommand>>,
-) {
+function sendAcknowledgment({
+  reply,
+  result,
+}: {
+  reply: FastifyReply;
+  result: Awaited<ReturnType<typeof executeCommand>>;
+}) {
   return reply
     .code(result.acknowledgment.status)
     .headers(result.acknowledgment.headers)

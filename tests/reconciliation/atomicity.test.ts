@@ -18,13 +18,16 @@ test.each([false, true])(
   async (conflicting) => {
     await using files = await isolatedDatabases();
     await using app = await journey(files);
-    const payment = await unknownPayment(app, files.paybridge);
-    const evidence = await inspect(
-      files.mockFourcs,
-      payment.identity.provider_account_ref,
-      payment.identity.provider_transaction_id,
-    );
-    const input = resolutionInput(payment.reconciliationId, evidence);
+    const payment = await unknownPayment({ app, path: files.paybridge });
+    const evidence = await inspect({
+      path: files.mockFourcs,
+      account: payment.identity.provider_account_ref,
+      tranId: payment.identity.provider_transaction_id,
+    });
+    const input = resolutionInput({
+      reconciliationId: payment.reconciliationId,
+      evidence,
+    });
     const inputs = [
       input,
       conflicting
@@ -53,7 +56,7 @@ test.each([false, true])(
         code: "reconciliation_conflict",
       });
     else expect(results[0]?.body).toEqual(results[1]?.body);
-    expect(await lookup(app.url, payment.id)).toMatchObject({
+    expect(await lookup({ url: app.url, id: payment.id })).toMatchObject({
       status: "SUCCEEDED",
       revision: 4,
     });
@@ -90,13 +93,16 @@ test.each([false, true])(
 test("failed start and resolution transactions roll back all records, and a killed resolution is safely retried", async () => {
   await using files = await isolatedDatabases();
   await using app = await journey(files);
-  const payment = await unknownPayment(app, files.paybridge);
-  const evidence = await inspect(
-    files.mockFourcs,
-    payment.identity.provider_account_ref,
-    payment.identity.provider_transaction_id,
-  );
-  const input = resolutionInput(payment.reconciliationId, evidence);
+  const payment = await unknownPayment({ app, path: files.paybridge });
+  const evidence = await inspect({
+    path: files.mockFourcs,
+    account: payment.identity.provider_account_ref,
+    tranId: payment.identity.provider_transaction_id,
+  });
+  const input = resolutionInput({
+    reconciliationId: payment.reconciliationId,
+    evidence,
+  });
   const initial = records(files.paybridge);
   for (const candidate of [
     {
@@ -119,7 +125,7 @@ test("failed start and resolution transactions roll back all records, and a kill
       body: { kind: "error", code: "reconciliation_failed" },
     });
     expect(records(files.paybridge)).toEqual(initial);
-    expect(await lookup(app.url, payment.id)).toMatchObject({
+    expect(await lookup({ url: app.url, id: payment.id })).toMatchObject({
       status: "UNKNOWN",
       revision: 3,
     });
@@ -145,7 +151,7 @@ test("failed start and resolution transactions roll back all records, and a kill
   });
   try {
     const { url } = ready.assert(await restarted.message());
-    expect(await lookup(url, payment.id)).toMatchObject({
+    expect(await lookup({ url, id: payment.id })).toMatchObject({
       status: "UNKNOWN",
       revision: 3,
     });
@@ -155,7 +161,7 @@ test("failed start and resolution transactions roll back all records, and a kill
       input,
     });
     expect(resolved.code).toBe(0);
-    expect(await lookup(url, payment.id)).toMatchObject({
+    expect(await lookup({ url, id: payment.id })).toMatchObject({
       status: "SUCCEEDED",
       revision: 4,
     });
@@ -167,7 +173,7 @@ test("failed start and resolution transactions roll back all records, and a kill
     });
     try {
       const next = ready.assert(await reopened.message());
-      expect(await lookup(next.url, payment.id)).toMatchObject({
+      expect(await lookup({ url: next.url, id: payment.id })).toMatchObject({
         status: "SUCCEEDED",
         revision: 4,
       });

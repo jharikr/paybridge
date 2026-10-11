@@ -53,7 +53,15 @@ export const checkpoint = type({
   kind: "'prepared' | 'received' | 'before-completion-commit'",
   commandId: "string",
 });
-export function post(url: string, path: string, body?: unknown) {
+export function post({
+  url,
+  path,
+  body,
+}: {
+  url: string;
+  path: string;
+  body?: unknown;
+}) {
   return fetch(`${url}${path}`, {
     method: "POST",
     ...(body === undefined

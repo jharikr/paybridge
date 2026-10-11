@@ -20,24 +20,33 @@ for (const lock of [
     });
     let worker: Awaited<ReturnType<typeof controlledInbox>> | undefined;
     try {
-      const { payment, path } = await boundOrder(merchant.url);
-      await post(merchant.url, `${path}/confirm`, {
-        commandNumber: 1,
-        expectedRevision: 1,
-        mockPaymentMethodRef: "pm_mock_approved",
+      const { payment, path } = await boundOrder({ url: merchant.url });
+      await post({
+        url: merchant.url,
+        path: `${path}/confirm`,
+        body: {
+          commandNumber: 1,
+          expectedRevision: 1,
+          mockPaymentMethodRef: "pm_mock_approved",
+        },
       });
       await services.startWorker();
       await expect
-        .poll(async () => (await lookup(services.url, payment.id)).status)
+        .poll(
+          async () =>
+            (await lookup({ url: services.url, id: payment.id })).status,
+        )
         .toBe("SUCCEEDED");
       const [event] = events(files.paybridge);
       if (!event) throw new Error("Expected success event");
-      expect((await deliver(merchant.url, event.payload)).status).toBe(204);
-      worker = await controlledInbox(
-        files.merchant,
-        lock === "completion writer" ? "after-inbox-claim" : "none",
-        { lease: 500 },
-      );
+      expect(
+        (await deliver({ url: merchant.url, body: event.payload })).status,
+      ).toBe(204);
+      worker = await controlledInbox({
+        path: files.merchant,
+        held: lock === "completion writer" ? "after-inbox-claim" : "none",
+        options: { lease: 500 },
+      });
       if (lock === "completion writer") {
         await worker.start();
         expect(await worker.message()).toMatchObject({
@@ -61,10 +70,10 @@ for (const lock of [
       await expect
         .poll(
           () =>
-            rows(
-              files.merchant,
-              "SELECT status,attempt_count FROM webhook_inbox",
-            ),
+            rows({
+              path: files.merchant,
+              sql: "SELECT status,attempt_count FROM webhook_inbox",
+            }),
           { timeout: 3000 },
         )
         .toEqual([
@@ -74,16 +83,19 @@ for (const lock of [
           },
         ]);
       expect(
-        rows(
-          files.merchant,
-          "SELECT status,last_applied_revision FROM merchant_payments",
-        ),
+        rows({
+          path: files.merchant,
+          sql: "SELECT status,last_applied_revision FROM merchant_payments",
+        }),
       ).toEqual([{ status: "SUCCEEDED", last_applied_revision: 3 }]);
-      expect(rows(files.merchant, "SELECT state,paid_at FROM orders")).toEqual([
-        { state: "PAID", paid_at: expect.any(String) },
-      ]);
       expect(
-        rows(files.mockFourcs, "SELECT effect_count FROM mock_transactions"),
+        rows({ path: files.merchant, sql: "SELECT state,paid_at FROM orders" }),
+      ).toEqual([{ state: "PAID", paid_at: expect.any(String) }]);
+      expect(
+        rows({
+          path: files.mockFourcs,
+          sql: "SELECT effect_count FROM mock_transactions",
+        }),
       ).toEqual([{ effect_count: 1 }]);
     } finally {
       await worker?.stop();

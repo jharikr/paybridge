@@ -1,23 +1,12 @@
+import { finalEvidence } from "../../contracts/reconciliation.ts";
+import { providerTranId } from "../../contracts/fourcs.ts";
 import { DatabaseSync } from "node:sqlite";
 import { type } from "arktype";
 
 const input = type({
   path: "string > 0",
   providerAccount: "'mock-account-a' | 'mock-account-b'",
-  tranId: /^[A-Za-z0-9]{1,16}$/,
-});
-const evidence = type({
-  providerAccount: "'mock-account-a' | 'mock-account-b'",
-  tranId: /^[A-Za-z0-9]{1,16}$/,
-  invoice: /^[A-Za-z0-9]{1,16}$/,
-  amountMinor: "number.integer >= 1",
-  currency: "'XCD'",
-  finalOutcome: "'Approved' | 'Declined' | 'Incomplete'",
-  effectCount: "0 | 1",
-  hostReference: "string",
-  approvalCode: "string | null",
-  acceptedAt: "string",
-  requestFingerprint: "string",
+  tranId: providerTranId,
 });
 
 try {
@@ -38,7 +27,7 @@ try {
       )
       .get(args.providerAccount, args.tranId);
     const result = row
-      ? { kind: "recorded", evidence: evidence.assert(row) }
+      ? { kind: "recorded", evidence: finalEvidence.assert(row) }
       : {
           kind: "absent",
           providerAccount: args.providerAccount,

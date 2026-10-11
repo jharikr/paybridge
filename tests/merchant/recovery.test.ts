@@ -29,16 +29,23 @@ test("a killed caller recovers the prepared creation key and request without a r
   let requestBody: unknown;
   try {
     id = orderIdentity.assert(
-      await (await post(first.url, "/merchant-a/orders", orderBody)).json(),
+      await (
+        await post({
+          url: first.url,
+          path: "/merchant-a/orders",
+          body: orderBody,
+        })
+      ).json(),
     ).id;
-    const pending = post(first.url, `/merchant-a/orders/${id}/payment`).catch(
-      () => null,
-    );
+    const pending = post({
+      url: first.url,
+      path: `/merchant-a/orders/${id}/payment`,
+    }).catch(() => null);
     commandId = checkpoint.assert(await first.message()).commandId;
-    const prepared = rows(
-      files.merchant,
-      "SELECT id, idempotency_key, status, request_body, target FROM merchant_commands",
-    );
+    const prepared = rows({
+      path: files.merchant,
+      sql: "SELECT id, idempotency_key, status, request_body, target FROM merchant_commands",
+    });
     expect(prepared).toHaveLength(1);
     expect(prepared[0]).toMatchObject({
       id: commandId,
@@ -47,7 +54,9 @@ test("a killed caller recovers the prepared creation key and request without a r
       target: "/v1/payment-intents",
     });
     requestBody = prepared[0]?.request_body;
-    expect(rows(files.paybridge, "SELECT id FROM payment_intents")).toEqual([]);
+    expect(
+      rows({ path: files.paybridge, sql: "SELECT id FROM payment_intents" }),
+    ).toEqual([]);
     await first.stop();
     expect(await pending).toBeNull();
   } finally {
@@ -70,20 +79,20 @@ test("a killed caller recovers the prepared creation key and request without a r
         status: "PREPARED",
       },
     ]);
-    const recovered = await post(
-      restarted.url,
-      `/merchant-a/orders/${id}/commands/${commandId}/recover`,
-    );
+    const recovered = await post({
+      url: restarted.url,
+      path: `/merchant-a/orders/${id}/commands/${commandId}/recover`,
+    });
     expect(recovered.status).toBe(201);
     const payment = paymentIdentity.assert(await recovered.json());
-    expect(rows(files.paybridge, "SELECT id FROM payment_intents")).toEqual([
-      { id: payment.id },
-    ]);
     expect(
-      rows(
-        files.merchant,
-        "SELECT id, idempotency_key, status, request_body FROM merchant_commands",
-      ),
+      rows({ path: files.paybridge, sql: "SELECT id FROM payment_intents" }),
+    ).toEqual([{ id: payment.id }]);
+    expect(
+      rows({
+        path: files.merchant,
+        sql: "SELECT id, idempotency_key, status, request_body FROM merchant_commands",
+      }),
     ).toEqual([
       {
         id: commandId,
@@ -109,11 +118,19 @@ for (const operation of ["create", "confirm"]) {
       let path: string;
       try {
         const order = orderIdentity.assert(
-          await (await post(setup.url, "/merchant-a/orders", orderBody)).json(),
+          await (
+            await post({
+              url: setup.url,
+              path: "/merchant-a/orders",
+              body: orderBody,
+            })
+          ).json(),
         );
         path = `/merchant-a/orders/${order.id}`;
         if (operation === "confirm")
-          expect((await post(setup.url, `${path}/payment`)).status).toBe(201);
+          expect(
+            (await post({ url: setup.url, path: `${path}/payment` })).status,
+          ).toBe(201);
       } finally {
         await setup.stop();
       }
@@ -125,53 +142,57 @@ for (const operation of ["create", "confirm"]) {
       let commandId: string;
       let prepared: ReturnType<typeof rows>;
       try {
-        const pending = post(
-          first.url,
-          `${path}/${operation === "create" ? "payment" : "confirm"}`,
-          operation === "create"
-            ? undefined
-            : {
-                commandNumber: 1,
-                mockPaymentMethodRef: "pm_mock_declined",
-                expectedRevision: 1,
-              },
-        ).catch(() => null);
+        const pending = post({
+          url: first.url,
+          path: `${path}/${operation === "create" ? "payment" : "confirm"}`,
+          body:
+            operation === "create"
+              ? undefined
+              : {
+                  commandNumber: 1,
+                  mockPaymentMethodRef: "pm_mock_declined",
+                  expectedRevision: 1,
+                },
+        }).catch(() => null);
         const phase = checkpoint.assert(await first.message());
         expect(phase.kind).toBe(fault);
         commandId = phase.commandId;
-        prepared = rows(
-          files.merchant,
-          `SELECT id, idempotency_key, target, request_body FROM merchant_commands WHERE operation = '${operation}'`,
-        );
+        prepared = rows({
+          path: files.merchant,
+          sql: `SELECT id, idempotency_key, target, request_body FROM merchant_commands WHERE operation = '${operation}'`,
+        });
         expect(prepared).toHaveLength(1);
         expect(
-          rows(
-            files.merchant,
-            `SELECT status, response_body FROM merchant_commands WHERE operation = '${operation}'`,
-          ),
+          rows({
+            path: files.merchant,
+            sql: `SELECT status, response_body FROM merchant_commands WHERE operation = '${operation}'`,
+          }),
         ).toEqual([{ status: "PREPARED", response_body: null }]);
         if (operation === "create")
           expect(
-            rows(
-              files.merchant,
-              "SELECT payment_intent_id FROM merchant_payments",
-            ),
+            rows({
+              path: files.merchant,
+              sql: "SELECT payment_intent_id FROM merchant_payments",
+            }),
           ).toEqual([]);
         expect(
-          rows(
-            files.paybridge,
-            operation === "create"
-              ? "SELECT id FROM payment_intents"
-              : "SELECT id FROM payment_attempts",
-          ),
+          rows({
+            path: files.paybridge,
+            sql:
+              operation === "create"
+                ? "SELECT id FROM payment_intents"
+                : "SELECT id FROM payment_attempts",
+          }),
         ).toHaveLength(fault === "prepared" ? 0 : 1);
         if (operation === "confirm" && fault !== "prepared") {
           await services.startWorker();
           await expect
             .poll(
               () =>
-                rows(files.paybridge, "SELECT status FROM payment_intents")[0]
-                  ?.status,
+                rows({
+                  path: files.paybridge,
+                  sql: "SELECT status FROM payment_intents",
+                })[0]?.status,
             )
             .toBe("FAILED");
         }
@@ -185,42 +206,51 @@ for (const operation of ["create", "confirm"]) {
         paybridgeUrl: services.url,
       });
       try {
-        const recovered = await post(
-          restarted.url,
-          `${path}/commands/${commandId}/recover`,
-        );
+        const recovered = await post({
+          url: restarted.url,
+          path: `${path}/commands/${commandId}/recover`,
+        });
         expect(recovered.status).toBe(operation === "create" ? 201 : 202);
         const actual = await recovered.text();
-        const remote = rows(
-          files.paybridge,
-          `SELECT response_body, response_headers FROM idempotency_keys WHERE key = '${commandId}'`,
-        )[0];
+        const remote = rows({
+          path: files.paybridge,
+          sql: `SELECT response_body, response_headers FROM idempotency_keys WHERE key = '${commandId}'`,
+        })[0];
         expect(actual).toBe(remote?.response_body);
         const remoteHeaders = type({ location: "string" }).assert(
           JSON.parse(String(remote?.response_headers)),
         );
         expect(recovered.headers.get("location")).toBe(remoteHeaders.location);
         expect(
-          rows(
-            files.merchant,
-            `SELECT id, idempotency_key, target, request_body FROM merchant_commands WHERE operation = '${operation}'`,
-          ),
+          rows({
+            path: files.merchant,
+            sql: `SELECT id, idempotency_key, target, request_body FROM merchant_commands WHERE operation = '${operation}'`,
+          }),
         ).toEqual(prepared);
         expect(
-          rows(
-            files.merchant,
-            `SELECT status, response_body FROM merchant_commands WHERE operation = '${operation}'`,
-          ),
+          rows({
+            path: files.merchant,
+            sql: `SELECT status, response_body FROM merchant_commands WHERE operation = '${operation}'`,
+          }),
         ).toEqual([{ status: "COMPLETED", response_body: actual }]);
         expect(
-          rows(files.merchant, "SELECT state, paid_at FROM orders"),
+          rows({
+            path: files.merchant,
+            sql: "SELECT state, paid_at FROM orders",
+          }),
         ).toEqual([{ state: "UNPAID", paid_at: null }]);
         expect(
-          rows(files.paybridge, "SELECT id FROM payment_intents"),
+          rows({
+            path: files.paybridge,
+            sql: "SELECT id FROM payment_intents",
+          }),
         ).toHaveLength(1);
         if (operation === "confirm")
           expect(
-            rows(files.paybridge, "SELECT id FROM payment_attempts"),
+            rows({
+              path: files.paybridge,
+              sql: "SELECT id FROM payment_attempts",
+            }),
           ).toHaveLength(1);
         expect(restarted.output()).not.toMatch(
           /mock-paybridge-key|checkout\/.+token=/,
@@ -244,11 +274,19 @@ test.each(["create", "confirm"])(
     let path: string;
     try {
       const order = orderIdentity.assert(
-        await (await post(setup.url, "/merchant-a/orders", orderBody)).json(),
+        await (
+          await post({
+            url: setup.url,
+            path: "/merchant-a/orders",
+            body: orderBody,
+          })
+        ).json(),
       );
       path = `/merchant-a/orders/${order.id}`;
       if (operation === "confirm")
-        expect((await post(setup.url, `${path}/payment`)).status).toBe(201);
+        expect(
+          (await post({ url: setup.url, path: `${path}/payment` })).status,
+        ).toBe(201);
     } finally {
       await setup.stop();
     }
@@ -274,31 +312,32 @@ test.each(["create", "confirm"])(
     let commandId: string;
     let original: string;
     try {
-      const pending = post(
-        first.url,
-        `${path}/${operation === "create" ? "payment" : "confirm"}`,
-        operation === "create"
-          ? undefined
-          : {
-              commandNumber: 1,
-              mockPaymentMethodRef: "pm_mock_approved",
-              expectedRevision: 1,
-            },
-      ).catch(() => null);
+      const pending = post({
+        url: first.url,
+        path: `${path}/${operation === "create" ? "payment" : "confirm"}`,
+        body:
+          operation === "create"
+            ? undefined
+            : {
+                commandNumber: 1,
+                mockPaymentMethodRef: "pm_mock_approved",
+                expectedRevision: 1,
+              },
+      }).catch(() => null);
       expect(await remote.message()).toEqual({ kind: "after-commit" });
       const command = type({ id: "string", status: "string" }).assert(
-        rows(
-          files.merchant,
-          `SELECT id, status FROM merchant_commands WHERE operation = '${operation}'`,
-        )[0],
+        rows({
+          path: files.merchant,
+          sql: `SELECT id, status FROM merchant_commands WHERE operation = '${operation}'`,
+        })[0],
       );
       commandId = command.id;
       expect(command.status).toBe("PREPARED");
       original = type({ response_body: "string" }).assert(
-        rows(
-          files.paybridge,
-          `SELECT response_body FROM idempotency_keys WHERE key = '${commandId}'`,
-        )[0],
+        rows({
+          path: files.paybridge,
+          sql: `SELECT response_body FROM idempotency_keys WHERE key = '${commandId}'`,
+        })[0],
       ).response_body;
       await first.stop();
       expect(await pending).toBeNull();
@@ -320,20 +359,23 @@ test.each(["create", "confirm"])(
       paybridgeUrl: apiUrl,
     });
     try {
-      const response = await post(
-        restarted.url,
-        `${path}/commands/${commandId}/recover`,
-      );
+      const response = await post({
+        url: restarted.url,
+        path: `${path}/commands/${commandId}/recover`,
+      });
       expect(response.status).toBe(operation === "create" ? 201 : 202);
       expect(await response.text()).toBe(original);
       expect(
-        rows(files.paybridge, "SELECT id FROM payment_intents"),
+        rows({ path: files.paybridge, sql: "SELECT id FROM payment_intents" }),
       ).toHaveLength(1);
       expect(
-        rows(files.paybridge, "SELECT id FROM payment_attempts"),
+        rows({ path: files.paybridge, sql: "SELECT id FROM payment_attempts" }),
       ).toHaveLength(operation === "confirm" ? 1 : 0);
       expect(
-        rows(files.merchant, "SELECT payment_intent_id FROM merchant_payments"),
+        rows({
+          path: files.merchant,
+          sql: "SELECT payment_intent_id FROM merchant_payments",
+        }),
       ).toHaveLength(1);
     } finally {
       await restarted.stop();
@@ -353,9 +395,18 @@ test("local completion rollback retains a recoverable command and never commits 
   let id: string;
   try {
     id = orderIdentity.assert(
-      await (await post(first.url, "/merchant-a/orders", orderBody)).json(),
+      await (
+        await post({
+          url: first.url,
+          path: "/merchant-a/orders",
+          body: orderBody,
+        })
+      ).json(),
     ).id;
-    const failed = await post(first.url, `/merchant-a/orders/${id}/payment`);
+    const failed = await post({
+      url: first.url,
+      path: `/merchant-a/orders/${id}/payment`,
+    });
     expect(failed.status).toBe(500);
     await compareResponse({
       contract: await contractAt(first.url),
@@ -365,16 +416,19 @@ test("local completion rollback retains a recoverable command and never commits 
       status: 500,
     });
     expect(
-      rows(
-        files.merchant,
-        "SELECT status, response_body FROM merchant_commands",
-      ),
+      rows({
+        path: files.merchant,
+        sql: "SELECT status, response_body FROM merchant_commands",
+      }),
     ).toEqual([{ status: "PREPARED", response_body: null }]);
     expect(
-      rows(files.merchant, "SELECT payment_intent_id FROM merchant_payments"),
+      rows({
+        path: files.merchant,
+        sql: "SELECT payment_intent_id FROM merchant_payments",
+      }),
     ).toEqual([]);
     expect(
-      rows(files.paybridge, "SELECT id FROM payment_intents"),
+      rows({ path: files.paybridge, sql: "SELECT id FROM payment_intents" }),
     ).toHaveLength(1);
   } finally {
     await first.stop();
@@ -384,18 +438,21 @@ test("local completion rollback retains a recoverable command and never commits 
     paybridgeUrl: services.url,
   });
   try {
-    const recovered = await post(
-      restarted.url,
-      `/merchant-a/orders/${id}/payment`,
-    );
+    const recovered = await post({
+      url: restarted.url,
+      path: `/merchant-a/orders/${id}/payment`,
+    });
     expect(recovered.status).toBe(201);
     const payment = paymentIdentity.assert(await recovered.json());
     expect(
-      rows(files.merchant, "SELECT payment_intent_id FROM merchant_payments"),
+      rows({
+        path: files.merchant,
+        sql: "SELECT payment_intent_id FROM merchant_payments",
+      }),
     ).toEqual([{ payment_intent_id: payment.id }]);
-    expect(rows(files.paybridge, "SELECT id FROM payment_intents")).toEqual([
-      { id: payment.id },
-    ]);
+    expect(
+      rows({ path: files.paybridge, sql: "SELECT id FROM payment_intents" }),
+    ).toEqual([{ id: payment.id }]);
   } finally {
     await restarted.stop();
   }

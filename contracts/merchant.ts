@@ -18,13 +18,19 @@ export const createOrderInput = createPaymentInput
     businessReference: createPaymentInput.get("merchantReference"),
     "+": "reject",
   });
-export const orderView = createOrderInput.merge({
-  id: orderId,
-  merchantId: merchantFixture,
-  state: "'UNPAID' | 'PAID'",
-  paidAt: "string | null",
-  paymentIntentId: paymentId.or("null"),
+export const orderPaidState = type({ state: "'UNPAID'", paidAt: "null" }).or({
+  state: "'PAID'",
+  paidAt: "string",
 });
+export const orderView = createOrderInput
+  .onUndeclaredKey("ignore")
+  .merge({
+    id: orderId,
+    merchantId: merchantFixture,
+    paymentIntentId: paymentId.or("null"),
+  })
+  .and(orderPaidState)
+  .onUndeclaredKey("reject");
 export const merchantConfirmationInput = confirmPaymentInput.merge({
   commandNumber: "1 <= number.integer <= 9007199254740991",
   "+": "reject",
@@ -49,8 +55,7 @@ export const merchantPaymentSnapshot = paymentSnapshot
   });
 export const merchantReturnResult = type({
   orderId,
-  state: "'UNPAID' | 'PAID'",
-  paidAt: "string | null",
   payment: merchantPaymentSnapshot,
-  "+": "reject",
-});
+})
+  .and(orderPaidState)
+  .onUndeclaredKey("reject");

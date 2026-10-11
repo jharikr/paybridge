@@ -52,10 +52,10 @@ test("SIGTERM stops both loops after a bounded in-flight webhook and preserves r
   );
   const { port } = type({ port: "number" }).assert(endpoint.address());
   const origin = `http://127.0.0.1:${port}`;
-  const api = await startApi(files.paybridge, origin);
+  const api = await startApi({ path: files.paybridge, merchantOrigin: origin });
   let worker: ReturnType<typeof startNodeProcess> | undefined;
   try {
-    await cancelled(api.url, origin);
+    await cancelled({ url: api.url, merchantOrigin: origin });
     worker = startNodeProcess({
       entrypoint: fileURLToPath(
         new URL("../../apps/paybridge/worker.ts", import.meta.url),
@@ -68,10 +68,10 @@ test("SIGTERM stops both loops after a bounded in-flight webhook and preserves r
     const process = worker;
     await expect.poll(() => process.child.exitCode, { timeout: 1500 }).toBe(0);
     expect(
-      rows(
-        files.paybridge,
-        "SELECT status,last_error,claim_token FROM webhook_outbox",
-      ),
+      rows({
+        path: files.paybridge,
+        sql: "SELECT status,last_error,claim_token FROM webhook_outbox",
+      }),
     ).toEqual([
       { status: "PENDING", last_error: "webhook_timeout", claim_token: null },
     ]);

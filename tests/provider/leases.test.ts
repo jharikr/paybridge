@@ -15,9 +15,9 @@ test.each([
     await using files = await isolatedDatabases();
     await using app = await journey(files);
     const { id } = type({ id: "string" }).assert(
-      await (await create(app.url)).json(),
+      await (await create({ url: app.url })).json(),
     );
-    expect((await confirm(app.url, id)).status).toBe(202);
+    expect((await confirm({ url: app.url, id })).status).toBe(202);
     const worker = await app.startWorker({
       entrypoint: fileURLToPath(
         new URL("./fixtures/lease-worker.ts", import.meta.url),
@@ -37,26 +37,28 @@ test.each([
       blocker.close();
     }
     await expect
-      .poll(() => lookup(app.url, id), { timeout: 2000 })
+      .poll(() => lookup({ url: app.url, id }), { timeout: 2000 })
       .toMatchObject({ status: "SUCCEEDED", revision: 3 });
     expect(
-      rows(
-        files.paybridge,
-        "SELECT attempt_count, status FROM provider_outbox",
-      ),
+      rows({
+        path: files.paybridge,
+        sql: "SELECT attempt_count, status FROM provider_outbox",
+      }),
     ).toEqual([{ attempt_count: executions, status: "COMPLETED" }]);
     expect(
-      rows(
-        files.paybridge,
-        "SELECT type FROM payment_events WHERE type = 'PROVIDER_RESPONSE_OBSERVED'",
-      ),
+      rows({
+        path: files.paybridge,
+        sql: "SELECT type FROM payment_events WHERE type = 'PROVIDER_RESPONSE_OBSERVED'",
+      }),
     ).toEqual([]);
-    expect(rows(files.paybridge, "SELECT id FROM reconciliations")).toEqual([]);
     expect(
-      rows(
-        files.mockFourcs,
-        "SELECT final_outcome, effect_count FROM mock_transactions",
-      ),
+      rows({ path: files.paybridge, sql: "SELECT id FROM reconciliations" }),
+    ).toEqual([]);
+    expect(
+      rows({
+        path: files.mockFourcs,
+        sql: "SELECT final_outcome, effect_count FROM mock_transactions",
+      }),
     ).toEqual([{ final_outcome: "Approved", effect_count: 1 }]);
   },
 );

@@ -28,24 +28,39 @@ for (const original of ["FAILED", "UNKNOWN"]) {
     let oldWorker: Awaited<ReturnType<typeof controlledInbox>> | undefined;
     let newWorker: Awaited<ReturnType<typeof startInbox>> | undefined;
     try {
-      const { payment, path } = await boundOrder(merchant.url);
-      await post(merchant.url, `${path}/confirm`, {
-        commandNumber: 1,
-        expectedRevision: 1,
-        mockPaymentMethodRef:
-          original === "FAILED" ? "pm_mock_declined" : "pm_mock_lost_response",
+      const { payment, path } = await boundOrder({ url: merchant.url });
+      await post({
+        url: merchant.url,
+        path: `${path}/confirm`,
+        body: {
+          commandNumber: 1,
+          expectedRevision: 1,
+          mockPaymentMethodRef:
+            original === "FAILED"
+              ? "pm_mock_declined"
+              : "pm_mock_lost_response",
+        },
       });
       const provider = await services.startWorker();
       await expect
-        .poll(async () => (await lookup(services.url, payment.id)).status)
+        .poll(
+          async () =>
+            (await lookup({ url: services.url, id: payment.id })).status,
+        )
         .toBe(original);
       await provider.stop();
       const [older] = events(files.paybridge);
       if (!older) throw new Error("Expected original event");
       if (original === "FAILED") {
-        expect((await deliver(merchant.url, older.payload)).status).toBe(204);
-        oldWorker = await controlledInbox(files.merchant, "after-inbox-claim", {
-          lease: 10000,
+        expect(
+          (await deliver({ url: merchant.url, body: older.payload })).status,
+        ).toBe(204);
+        oldWorker = await controlledInbox({
+          path: files.merchant,
+          held: "after-inbox-claim",
+          options: {
+            lease: 10000,
+          },
         });
         await oldWorker.start();
         expect(await oldWorker.message()).toEqual({
@@ -57,10 +72,14 @@ for (const original of ["FAILED", "UNKNOWN"]) {
         ).toMatchObject({ status: "FAILED", revision: 3 });
         expect(
           (
-            await post(merchant.url, `${path}/confirm`, {
-              commandNumber: 2,
-              expectedRevision: 3,
-              mockPaymentMethodRef: "pm_mock_approved",
+            await post({
+              url: merchant.url,
+              path: `${path}/confirm`,
+              body: {
+                commandNumber: 2,
+                expectedRevision: 3,
+                mockPaymentMethodRef: "pm_mock_approved",
+              },
             })
           ).status,
         ).toBe(202);
@@ -68,10 +87,10 @@ for (const original of ["FAILED", "UNKNOWN"]) {
           await (await fetch(`${merchant.url}${path}/payment`)).json(),
         ).toMatchObject({ status: "PROCESSING", revision: 4 });
         expect(
-          rows(
-            files.merchant,
-            "SELECT status,last_applied_revision FROM merchant_payments",
-          ),
+          rows({
+            path: files.merchant,
+            sql: "SELECT status,last_applied_revision FROM merchant_payments",
+          }),
         ).toEqual([{ status: "PROCESSING", last_applied_revision: 4 }]);
         await services.startWorker();
       } else {
@@ -80,34 +99,42 @@ for (const original of ["FAILED", "UNKNOWN"]) {
           provider_account_ref: "string",
           provider_transaction_id: "string",
         }).assert(
-          rows(
-            files.paybridge,
-            "SELECT r.id,a.provider_account_ref,a.provider_transaction_id FROM reconciliations r JOIN payment_attempts a ON a.id=r.payment_attempt_id",
-          )[0],
+          rows({
+            path: files.paybridge,
+            sql: "SELECT r.id,a.provider_account_ref,a.provider_transaction_id FROM reconciliations r JOIN payment_attempts a ON a.id=r.payment_attempt_id",
+          })[0],
         );
-        const evidence = await inspect(
-          files.mockFourcs,
-          identity.provider_account_ref,
-          identity.provider_transaction_id,
-        );
+        const evidence = await inspect({
+          path: files.mockFourcs,
+          account: identity.provider_account_ref,
+          tranId: identity.provider_transaction_id,
+        });
         expect(
           (
             await command({
               path: files.paybridge,
               directory: files.directory,
-              input: resolutionInput(identity.id, evidence),
+              input: resolutionInput({
+                reconciliationId: identity.id,
+                evidence,
+              }),
             })
           ).code,
         ).toBe(0);
       }
       await expect
-        .poll(async () => (await lookup(services.url, payment.id)).status)
+        .poll(
+          async () =>
+            (await lookup({ url: services.url, id: payment.id })).status,
+        )
         .toBe("SUCCEEDED");
       const newer = events(files.paybridge).find(
         (event) => event.event_type === "payment.succeeded",
       );
       if (!newer) throw new Error("Expected success event");
-      expect((await deliver(merchant.url, newer.payload)).status).toBe(204);
+      expect(
+        (await deliver({ url: merchant.url, body: newer.payload })).status,
+      ).toBe(204);
       newWorker = await startInbox(files.merchant);
       const racing = await Promise.all(
         Array.from({ length: 12 }, (_, index) =>
@@ -121,10 +148,10 @@ for (const original of ["FAILED", "UNKNOWN"]) {
       );
       await expect
         .poll(() =>
-          rows(
-            files.merchant,
-            `SELECT status FROM webhook_inbox WHERE event_id='${newer.payment_event_id}'`,
-          ),
+          rows({
+            path: files.merchant,
+            sql: `SELECT status FROM webhook_inbox WHERE event_id='${newer.payment_event_id}'`,
+          }),
         )
         .toEqual([{ status: "PROCESSED" }]);
       const applied = merchantRecords(files.merchant);
@@ -139,9 +166,16 @@ for (const original of ["FAILED", "UNKNOWN"]) {
       ]);
       if (oldWorker) oldWorker.child.send({ kind: "release" });
       else
-        expect((await deliver(merchant.url, older.payload)).status).toBe(204);
+        expect(
+          (await deliver({ url: merchant.url, body: older.payload })).status,
+        ).toBe(204);
       await expect
-        .poll(() => rows(files.merchant, "SELECT status FROM webhook_inbox"))
+        .poll(() =>
+          rows({
+            path: files.merchant,
+            sql: "SELECT status FROM webhook_inbox",
+          }),
+        )
         .toEqual([{ status: "PROCESSED" }, { status: "PROCESSED" }]);
       expect(merchantRecords(files.merchant).orders).toEqual(applied.orders);
       expect(merchantRecords(files.merchant).payments).toEqual(
@@ -150,7 +184,7 @@ for (const original of ["FAILED", "UNKNOWN"]) {
       const completed = merchantRecords(files.merchant);
       const duplicates = await Promise.all(
         [older, newer, newer, older].map((event) =>
-          deliver(merchant.url, event.payload),
+          deliver({ url: merchant.url, body: event.payload }),
         ),
       );
       expect(duplicates.map((response) => response.status)).toEqual(
@@ -158,10 +192,10 @@ for (const original of ["FAILED", "UNKNOWN"]) {
       );
       expect(merchantRecords(files.merchant)).toEqual(completed);
       expect(
-        rows(
-          files.mockFourcs,
-          "SELECT sum(effect_count) AS count FROM mock_transactions",
-        ),
+        rows({
+          path: files.mockFourcs,
+          sql: "SELECT sum(effect_count) AS count FROM mock_transactions",
+        }),
       ).toEqual([{ count: 1 }]);
     } finally {
       await oldWorker?.stop();

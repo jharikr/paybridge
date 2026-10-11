@@ -15,7 +15,10 @@ export function parseJson(body: string): unknown {
   try {
     return JSON.parse(body);
   } catch {
-    throw new MerchantError(502, "invalid_paybridge_response");
+    throw new MerchantError({
+      status: 502,
+      code: "invalid_paybridge_response",
+    });
   }
 }
 
@@ -49,33 +52,42 @@ export async function paybridgeRequest({
       redirect: "error",
     });
     if (!response.body)
-      throw new MerchantError(502, "invalid_paybridge_response");
+      throw new MerchantError({
+        status: 502,
+        code: "invalid_paybridge_response",
+      });
     const chunks: Uint8Array[] = [];
     let bytes = 0;
     for await (const chunk of response.body) {
       bytes += chunk.byteLength;
       if (bytes > 16_384)
-        throw new MerchantError(502, "invalid_paybridge_response");
+        throw new MerchantError({
+          status: 502,
+          code: "invalid_paybridge_response",
+        });
       chunks.push(chunk);
     }
     body = Buffer.concat(chunks).toString("utf8");
   } catch (error) {
     if (error instanceof MerchantError) throw error;
-    throw new MerchantError(503, "paybridge_unavailable");
+    throw new MerchantError({ status: 503, code: "paybridge_unavailable" });
   }
   if (
     response.status >= 500 ||
     response.status === 408 ||
     response.status === 429
   )
-    throw new MerchantError(503, "paybridge_unavailable");
+    throw new MerchantError({ status: 503, code: "paybridge_unavailable" });
   const value = parseJson(body);
   if (response.status >= 400) {
     const failure = errorResponse(value);
     if (failure instanceof type.errors)
-      throw new MerchantError(502, "invalid_paybridge_response");
+      throw new MerchantError({
+        status: 502,
+        code: "invalid_paybridge_response",
+      });
     if (failure.error.code === "command_in_progress")
-      throw new MerchantError(503, "paybridge_unavailable");
+      throw new MerchantError({ status: 503, code: "paybridge_unavailable" });
   }
   const headers: Record<string, string> = {};
   for (const name of [
@@ -103,7 +115,7 @@ export async function lookupOrderPayment({
 }) {
   const order = await readOrder({ db, merchant, id });
   if (order.paymentIntentId === null)
-    throw new MerchantError(409, "payment_not_created");
+    throw new MerchantError({ status: 409, code: "payment_not_created" });
   const response = await paybridgeRequest({
     origin: paybridgeOrigin,
     merchant,
@@ -118,6 +130,9 @@ export async function lookupOrderPayment({
     snapshot.amount !== order.amount ||
     snapshot.currency !== order.currency
   )
-    throw new MerchantError(502, "invalid_paybridge_response");
+    throw new MerchantError({
+      status: 502,
+      code: "invalid_paybridge_response",
+    });
   return snapshot;
 }

@@ -1,3 +1,4 @@
+import { providerTranId, providerInvoice } from "./fourcs.ts";
 import { type } from "arktype";
 import { boundedText } from "./payments.ts";
 
@@ -5,7 +6,6 @@ export const reconciliationId =
   type(/^rec_[a-f0-9]{32}$/).brand("ReconciliationId");
 const requiredText = (limit: number) =>
   boundedText(limit).narrow((value) => value.trim().length > 0);
-const providerReference = type(/^[A-Za-z0-9]{1,16}$/);
 const instant = type(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/).narrow(
   (value) => {
     const milliseconds = Date.parse(value);
@@ -17,22 +17,26 @@ const instant = type(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/).narrow(
 );
 export const finalEvidence = type({
   providerAccount: "'mock-account-a' | 'mock-account-b'",
-  tranId: providerReference,
-  invoice: providerReference,
+  tranId: providerTranId,
+  invoice: providerInvoice,
   amountMinor: "1 <= number.integer <= 9999999999",
   currency: "'XCD'",
-  finalOutcome: "'Approved' | 'Declined' | 'Incomplete'",
-  effectCount: "0 | 1",
   hostReference: type(/^[a-f0-9]{16}$/),
-  approvalCode: type(/^[A-Za-z0-9]{1,12}$/).or("null"),
   acceptedAt: instant,
   requestFingerprint: type(/^[a-f0-9]{64}$/),
-  "+": "reject",
-}).narrow((facts) =>
-  facts.finalOutcome === "Approved"
-    ? facts.effectCount === 1 && facts.approvalCode !== null
-    : facts.effectCount === 0 && facts.approvalCode === null,
-);
+})
+  .and(
+    type({
+      finalOutcome: "'Approved'",
+      effectCount: "1",
+      approvalCode: /^[A-Za-z0-9]{1,12}$/,
+    }).or({
+      finalOutcome: "'Declined' | 'Incomplete'",
+      effectCount: "0",
+      approvalCode: "null",
+    }),
+  )
+  .onUndeclaredKey("reject");
 export const resolutionCommand = type({
   kind: "'resolve'",
   reconciliationId,

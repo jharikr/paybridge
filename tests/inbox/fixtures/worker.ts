@@ -1,3 +1,4 @@
+import { sensitiveFailure } from "../../support/failure.ts";
 import { randomUUID } from "node:crypto";
 import { type } from "arktype";
 import { openMerchantDatabase } from "../../../apps/merchant/database.ts";
@@ -55,7 +56,7 @@ await runInboxWorker({
   now: () => new Date(clock ?? Date.now()),
   checkpoint: async (event) => {
     if (held === "rollback" && event.kind === "before-inbox-completion-commit")
-      throw new Error("Injected inbox transaction failure");
+      throw sensitiveFailure();
     if (event.kind !== held || heldOnce) return;
     heldOnce = true;
     const waiting = new Promise<void>((resolve) => {

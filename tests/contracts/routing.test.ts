@@ -21,10 +21,16 @@ test("early router errors honor each API's generated JSON and security-header co
   });
   try {
     const payment = paymentIdentity.assert(
-      await (await create(services.url)).json(),
+      await (await create({ url: services.url })).json(),
     );
     const order = orderIdentity.assert(
-      await (await post(merchant.url, "/merchant-a/orders", orderBody)).json(),
+      await (
+        await post({
+          url: merchant.url,
+          path: "/merchant-a/orders",
+          body: orderBody,
+        })
+      ).json(),
     );
     const paybridgeContract = await contractAt(services.url);
     const merchantContract = await contractAt(merchant.url);
@@ -92,23 +98,26 @@ test("early router errors honor each API's generated JSON and security-header co
       }
     }
     expect(
-      rows(files.paybridge, "SELECT count(*) AS count FROM payment_intents"),
+      rows({
+        path: files.paybridge,
+        sql: "SELECT count(*) AS count FROM payment_intents",
+      }),
     ).toEqual([{ count: 1 }]);
-    expect(rows(files.merchant, "SELECT event_id FROM webhook_inbox")).toEqual(
-      [],
-    );
+    expect(
+      rows({ path: files.merchant, sql: "SELECT event_id FROM webhook_inbox" }),
+    ).toEqual([]);
     await compareResponse({
       contract: merchantContract,
       path: "/api/webhooks/paybridge/{merchantFixture}",
       method: "post",
-      response: await deliver(merchant.url, payload),
+      response: await deliver({ url: merchant.url, body: payload }),
       status: 204,
     });
     expect(
-      rows(
-        files.merchant,
-        "SELECT receiving_merchant_id,status FROM webhook_inbox",
-      ),
+      rows({
+        path: files.merchant,
+        sql: "SELECT receiving_merchant_id,status FROM webhook_inbox",
+      }),
     ).toEqual([{ receiving_merchant_id: "merchant-a", status: "PENDING" }]);
   } finally {
     await merchant.stop();
@@ -123,7 +132,7 @@ test("only explicit GET methods are exposed, with authentication and capability 
     paybridgeUrl: services.url,
   });
   try {
-    const { order, payment, path } = await boundOrder(merchant.url);
+    const { order, payment, path } = await boundOrder({ url: merchant.url });
     const checkout = new URL(payment.checkoutUrl);
     const checkoutPath = checkout.pathname + checkout.search;
     const getPaths = [
@@ -184,9 +193,45 @@ test("only explicit GET methods are exposed, with authentication and capability 
         )
       ).status,
     ).toBe(404);
-    expect(rows(files.merchant, "SELECT id,state,paid_at FROM orders")).toEqual(
-      [{ id: order.id, state: "UNPAID", paid_at: null }],
-    );
+    expect(
+      rows({
+        path: files.merchant,
+        sql: "SELECT id,state,paid_at FROM orders",
+      }),
+    ).toEqual([{ id: order.id, state: "UNPAID", paid_at: null }]);
+  } finally {
+    await merchant.stop();
+  }
+});
+
+test("unmatched API routes return stable redacted errors without echoing capabilities or credentials", async () => {
+  await using files = await isolatedDatabases();
+  await using services = await journey(files);
+  const merchant = await launchMerchant({
+    path: files.merchant,
+    paybridgeUrl: services.url,
+  });
+  try {
+    for (const origin of [services.url, merchant.url]) {
+      const response = await fetch(
+        `${origin}/checkout/pi_${"a".repeat(32)}/cancel?token=sensitive-capability&credential=sensitive-credential`,
+        { method: "POST" },
+      );
+      expect(response.status).toBe(404);
+      expect(response.headers.get("cache-control")).toBe("no-store");
+      expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+      const body = await response.json();
+      expect(body).toEqual({
+        error: {
+          code: "route_not_found",
+          message: "The route was not found.",
+          requestId: expect.stringMatching(/^req_/),
+        },
+      });
+      expect(JSON.stringify(body)).not.toMatch(
+        /sensitive|token=|credential=|checkout/,
+      );
+    }
   } finally {
     await merchant.stop();
   }

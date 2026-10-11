@@ -38,11 +38,11 @@ async function main() {
       }) + "\n",
       { mode: 0o600, flag: "wx" },
     );
-    const result = await runJourney(
+    const result = await runJourney({
       directory,
       paybridgePort,
-      controller.signal,
-    );
+      signal: controller.signal,
+    });
     controller.signal.throwIfAborted();
     await writeFile(
       join(directory, "result.json"),

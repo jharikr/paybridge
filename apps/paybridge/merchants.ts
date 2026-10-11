@@ -1,3 +1,4 @@
+import { fixtureReturnOrigins } from "../../contracts/fixtures.ts";
 import { createHash } from "node:crypto";
 import { type } from "arktype";
 import { merchantId } from "../../contracts/payments.ts";
@@ -19,14 +20,15 @@ export async function seedMerchants({
   db: PaybridgeDatabase;
   merchantOrigin: string;
 }) {
+  const origins = fixtureReturnOrigins(merchantOrigin);
   await db.transaction(async (tx) => {
-    for (const letter of ["a", "b"]) {
-      const id = `merchant-${letter}`;
+    for (const letter of ["a", "b"] as const) {
+      const id = `merchant-${letter}` as const;
       await tx.execute(
         db.raw.sql`
         INSERT INTO merchants (id, name, provider_account_ref, api_key_hash, webhook_url, webhook_secret, return_origin, is_active, created_at)
         VALUES (${id}, ${`Synthetic merchant ${letter.toUpperCase()}`}, ${`mock-account-${letter}`}, ${hashSecret(`mock-paybridge-key-${letter}`)},
-          ${`${merchantOrigin}/api/webhooks/paybridge/${id}`}, ${`mock-webhook-secret-${letter}`}, ${merchantOrigin}, 1, ${new Date().toISOString()})
+          ${`${merchantOrigin}/api/webhooks/paybridge/${id}`}, ${`mock-webhook-secret-${letter}`}, ${origins[id]}, 1, ${new Date().toISOString()})
         ON CONFLICT(id) DO NOTHING
       `
           .affectedCount()

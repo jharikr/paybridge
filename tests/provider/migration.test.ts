@@ -162,12 +162,12 @@ test("the result migration retains an accepted attempt, its immutable inputs and
     "idempotency_keys",
   ];
   const before = retainedTables.map((table) =>
-    rows(files.paybridge, `SELECT * FROM ${table}`),
+    rows({ path: files.paybridge, sql: `SELECT * FROM ${table}` }),
   );
   await using app = await journey(files);
   expect(
     retainedTables.map((table) =>
-      rows(files.paybridge, `SELECT * FROM ${table}`),
+      rows({ path: files.paybridge, sql: `SELECT * FROM ${table}` }),
     ),
   ).toEqual(before);
   const guard = new DatabaseSync(files.paybridge);
@@ -191,16 +191,20 @@ test("the result migration retains an accepted attempt, its immutable inputs and
   }
   await app.startWorker();
   await expect
-    .poll(() => lookup(app.url, id))
+    .poll(() => lookup({ url: app.url, id }))
     .toMatchObject({ status: "SUCCEEDED", revision: 3 });
-  const replay = await confirm(app.url, id, { key: "legacy-confirm" });
+  const replay = await confirm({
+    url: app.url,
+    id,
+    options: { key: "legacy-confirm" },
+  });
   expect(replay.status).toBe(202);
   expect(await replay.text()).toBe(responseBody);
   expect(
-    rows(
-      files.mockFourcs,
-      "SELECT provider_account, tran_id, invoice, amount_minor, effect_count FROM mock_transactions",
-    ),
+    rows({
+      path: files.mockFourcs,
+      sql: "SELECT provider_account, tran_id, invoice, amount_minor, effect_count FROM mock_transactions",
+    }),
   ).toEqual([
     {
       provider_account: "mock-account-a",

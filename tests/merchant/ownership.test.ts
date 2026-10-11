@@ -19,16 +19,34 @@ test("fixture ownership and strict requests prevent substituted order, payment, 
   });
   try {
     const a = orderIdentity.assert(
-      await (await post(merchant.url, "/merchant-a/orders", orderBody)).json(),
+      await (
+        await post({
+          url: merchant.url,
+          path: "/merchant-a/orders",
+          body: orderBody,
+        })
+      ).json(),
     );
     const b = orderIdentity.assert(
-      await (await post(merchant.url, "/merchant-b/orders", orderBody)).json(),
+      await (
+        await post({
+          url: merchant.url,
+          path: "/merchant-b/orders",
+          body: orderBody,
+        })
+      ).json(),
     );
     const aPath = `/merchant-a/orders/${a.id}`;
     const bPath = `/merchant-b/orders/${b.id}`;
-    const createdA = await post(merchant.url, `${aPath}/payment`);
+    const createdA = await post({
+      url: merchant.url,
+      path: `${aPath}/payment`,
+    });
     const aId = paymentIdentity.assert(await createdA.json()).id;
-    const createdB = await post(merchant.url, `${bPath}/payment`);
+    const createdB = await post({
+      url: merchant.url,
+      path: `${bPath}/payment`,
+    });
     const bId = paymentIdentity.assert(await createdB.json()).id;
     expect(aId).not.toBe(bId);
     const commands = commandList.assert(
@@ -47,71 +65,109 @@ test("fixture ownership and strict requests prevent substituted order, payment, 
           .status,
       ).toBe(404);
     expect(
-      (await post(merchant.url, `/merchant-b/orders/${a.id}/confirm`, confirm))
+      (
+        await post({
+          url: merchant.url,
+          path: `/merchant-b/orders/${a.id}/confirm`,
+          body: confirm,
+        })
+      ).status,
+    ).toBe(404);
+    expect(
+      (
+        await post({
+          url: merchant.url,
+          path: `${bPath}/commands/${aCommand}/recover`,
+        })
+      ).status,
+    ).toBe(404);
+    expect(
+      (
+        await post({
+          url: merchant.url,
+          path: `${aPath}/commands/${createdB.headers.get("x-merchant-command-id")}/recover`,
+        })
+      ).status,
+    ).toBe(404);
+    expect(
+      (
+        await post({
+          url: merchant.url,
+          path: `${aPath}/confirm`,
+          body: {
+            ...confirm,
+            paymentIntentId: bId,
+          },
+        })
+      ).status,
+    ).toBe(400);
+    expect(
+      (
+        await post({
+          url: merchant.url,
+          path: `${aPath}/confirm`,
+          body: {
+            ...confirm,
+            merchantId: "merchant-b",
+          },
+        })
+      ).status,
+    ).toBe(400);
+    expect(
+      (
+        await post({
+          url: merchant.url,
+          path: `${aPath}/confirm`,
+          body: {
+            ...confirm,
+            cardNumber: "9900000000000001",
+          },
+        })
+      ).status,
+    ).toBe(400);
+    expect(
+      (await post({ url: merchant.url, path: `${aPath}/payment`, body: {} }))
         .status,
-    ).toBe(404);
-    expect(
-      (await post(merchant.url, `${bPath}/commands/${aCommand}/recover`))
-        .status,
-    ).toBe(404);
-    expect(
-      (
-        await post(
-          merchant.url,
-          `${aPath}/commands/${createdB.headers.get("x-merchant-command-id")}/recover`,
-        )
-      ).status,
-    ).toBe(404);
-    expect(
-      (
-        await post(merchant.url, `${aPath}/confirm`, {
-          ...confirm,
-          paymentIntentId: bId,
-        })
-      ).status,
     ).toBe(400);
-    expect(
-      (
-        await post(merchant.url, `${aPath}/confirm`, {
-          ...confirm,
-          merchantId: "merchant-b",
-        })
-      ).status,
-    ).toBe(400);
-    expect(
-      (
-        await post(merchant.url, `${aPath}/confirm`, {
-          ...confirm,
-          cardNumber: "9900000000000001",
-        })
-      ).status,
-    ).toBe(400);
-    expect((await post(merchant.url, `${aPath}/payment`, {})).status).toBe(400);
     expect(
       (await fetch(`${merchant.url}${aPath}/payment?paymentId=${bId}`)).status,
     ).toBe(400);
     expect(
       (
-        await post(merchant.url, "/merchant-a/orders", {
-          ...orderBody,
-          amount: 1,
+        await post({
+          url: merchant.url,
+          path: "/merchant-a/orders",
+          body: {
+            ...orderBody,
+            amount: 1,
+          },
         })
       ).status,
     ).toBe(409);
     expect(
       (
-        await post(merchant.url, "/merchant-a/orders", {
-          ...orderBody,
-          apiKey: "mock-paybridge-key-b",
+        await post({
+          url: merchant.url,
+          path: "/merchant-a/orders",
+          body: {
+            ...orderBody,
+            apiKey: "mock-paybridge-key-b",
+          },
         })
       ).status,
     ).toBe(400);
-    expect(rows(files.paybridge, "SELECT id FROM payment_attempts")).toEqual(
-      [],
-    );
-    expect((await post(merchant.url, `${bPath}/confirm`, confirm)).status).toBe(
-      202,
-    );
+    expect(
+      rows({ path: files.paybridge, sql: "SELECT id FROM payment_attempts" }),
+    ).toEqual([]);
+    expect(
+      (
+        await post({
+          url: merchant.url,
+          path: `${bPath}/confirm`,
+          body: confirm,
+        })
+      ).status,
+    ).toBe(202);
     await services.startWorker();
     await expect
       .poll(
@@ -121,16 +177,16 @@ test("fixture ownership and strict requests prevent substituted order, payment, 
       )
       .toBe("SUCCEEDED");
     expect(
-      rows(
-        files.mockFourcs,
-        "SELECT provider_account, effect_count FROM mock_transactions",
-      ),
+      rows({
+        path: files.mockFourcs,
+        sql: "SELECT provider_account, effect_count FROM mock_transactions",
+      }),
     ).toEqual([{ provider_account: "mock-account-b", effect_count: 1 }]);
     expect(
-      rows(
-        files.merchant,
-        "SELECT merchant_id, return_url, webhook_url FROM (SELECT id AS merchant_id, return_url, webhook_url FROM merchant_contexts) ORDER BY merchant_id",
-      ),
+      rows({
+        path: files.merchant,
+        sql: "SELECT merchant_id, return_url, webhook_url FROM (SELECT id AS merchant_id, return_url, webhook_url FROM merchant_contexts) ORDER BY merchant_id",
+      }),
     ).toEqual([
       {
         merchant_id: "merchant-a",
@@ -139,7 +195,7 @@ test("fixture ownership and strict requests prevent substituted order, payment, 
       },
       {
         merchant_id: "merchant-b",
-        return_url: "http://127.0.0.1:3101/merchant-b/payment-return",
+        return_url: "http://localhost:3101/merchant-b/payment-return",
         webhook_url: "http://127.0.0.1:3101/api/webhooks/paybridge/merchant-b",
       },
     ]);
@@ -157,10 +213,16 @@ test("cancelled and unknown payments keep their order binding and cannot be repl
   });
   try {
     const cancelled = orderIdentity.assert(
-      await (await post(merchant.url, "/merchant-a/orders", orderBody)).json(),
+      await (
+        await post({
+          url: merchant.url,
+          path: "/merchant-a/orders",
+          body: orderBody,
+        })
+      ).json(),
     );
     const path = `/merchant-a/orders/${cancelled.id}`;
-    const creation = await post(merchant.url, `${path}/payment`);
+    const creation = await post({ url: merchant.url, path: `${path}/payment` });
     const original = await creation.text();
     const payment = paymentIdentity.assert(JSON.parse(original));
     expect(
@@ -171,36 +233,48 @@ test("cancelled and unknown payments keep their order binding and cannot be repl
         })
       ).status,
     ).toBe(200);
-    expect(await (await post(merchant.url, `${path}/payment`)).text()).toBe(
-      original,
-    );
+    expect(
+      await (await post({ url: merchant.url, path: `${path}/payment` })).text(),
+    ).toBe(original);
     expect(
       (
-        await post(merchant.url, `${path}/confirm`, {
-          commandNumber: 1,
-          mockPaymentMethodRef: "pm_mock_approved",
-          expectedRevision: 2,
+        await post({
+          url: merchant.url,
+          path: `${path}/confirm`,
+          body: {
+            commandNumber: 1,
+            mockPaymentMethodRef: "pm_mock_approved",
+            expectedRevision: 2,
+          },
         })
       ).status,
     ).toBe(409);
     const unknownOrder = orderIdentity.assert(
       await (
-        await post(merchant.url, "/merchant-a/orders", {
-          ...orderBody,
-          businessReference: "UNKNOWN-ORDER",
+        await post({
+          url: merchant.url,
+          path: "/merchant-a/orders",
+          body: {
+            ...orderBody,
+            businessReference: "UNKNOWN-ORDER",
+          },
         })
       ).json(),
     );
     const unknownPath = `/merchant-a/orders/${unknownOrder.id}`;
     const unknownCreation = await (
-      await post(merchant.url, `${unknownPath}/payment`)
+      await post({ url: merchant.url, path: `${unknownPath}/payment` })
     ).text();
     expect(
       (
-        await post(merchant.url, `${unknownPath}/confirm`, {
-          commandNumber: 1,
-          mockPaymentMethodRef: "pm_mock_lost_response",
-          expectedRevision: 1,
+        await post({
+          url: merchant.url,
+          path: `${unknownPath}/confirm`,
+          body: {
+            commandNumber: 1,
+            mockPaymentMethodRef: "pm_mock_lost_response",
+            expectedRevision: 1,
+          },
         })
       ).status,
     ).toBe(202);
@@ -214,30 +288,42 @@ test("cancelled and unknown payments keep their order binding and cannot be repl
       .toBe("UNKNOWN");
     expect(
       (
-        await post(merchant.url, `${unknownPath}/confirm`, {
-          commandNumber: 2,
-          mockPaymentMethodRef: "pm_mock_approved",
-          expectedRevision: 3,
+        await post({
+          url: merchant.url,
+          path: `${unknownPath}/confirm`,
+          body: {
+            commandNumber: 2,
+            mockPaymentMethodRef: "pm_mock_approved",
+            expectedRevision: 3,
+          },
         })
       ).status,
     ).toBe(409);
     expect(
-      await (await post(merchant.url, `${unknownPath}/payment`)).text(),
+      await (
+        await post({ url: merchant.url, path: `${unknownPath}/payment` })
+      ).text(),
     ).toBe(unknownCreation);
     expect(
-      rows(files.merchant, "SELECT payment_intent_id FROM merchant_payments"),
+      rows({
+        path: files.merchant,
+        sql: "SELECT payment_intent_id FROM merchant_payments",
+      }),
     ).toHaveLength(2);
     expect(
-      rows(
-        files.paybridge,
-        "SELECT status FROM payment_intents ORDER BY created_at",
-      ),
+      rows({
+        path: files.paybridge,
+        sql: "SELECT status FROM payment_intents ORDER BY created_at",
+      }),
     ).toEqual([{ status: "CANCELLED" }, { status: "UNKNOWN" }]);
     expect(
-      rows(files.paybridge, "SELECT id FROM payment_attempts"),
+      rows({ path: files.paybridge, sql: "SELECT id FROM payment_attempts" }),
     ).toHaveLength(1);
     expect(
-      rows(files.mockFourcs, "SELECT effect_count FROM mock_transactions"),
+      rows({
+        path: files.mockFourcs,
+        sql: "SELECT effect_count FROM mock_transactions",
+      }),
     ).toEqual([{ effect_count: 1 }]);
   } finally {
     await merchant.stop();
@@ -253,18 +339,27 @@ test("a stale confirmation stays rejected until a refreshed revision is delibera
   });
   try {
     const order = orderIdentity.assert(
-      await (await post(merchant.url, "/merchant-a/orders", orderBody)).json(),
+      await (
+        await post({
+          url: merchant.url,
+          path: "/merchant-a/orders",
+          body: orderBody,
+        })
+      ).json(),
     );
     const path = `/merchant-a/orders/${order.id}`;
-    expect((await post(merchant.url, `${path}/payment`)).status).toBe(201);
+    expect(
+      (await post({ url: merchant.url, path: `${path}/payment` })).status,
+    ).toBe(201);
     const first = {
       commandNumber: 1,
       mockPaymentMethodRef: "pm_mock_declined",
       expectedRevision: 1,
     };
-    expect((await post(merchant.url, `${path}/confirm`, first)).status).toBe(
-      202,
-    );
+    expect(
+      (await post({ url: merchant.url, path: `${path}/confirm`, body: first }))
+        .status,
+    ).toBe(202);
     await services.startWorker();
     await expect
       .poll(
@@ -277,20 +372,30 @@ test("a stale confirmation stays rejected until a refreshed revision is delibera
       mockPaymentMethodRef: "pm_mock_approved",
       expectedRevision: 1,
     };
-    const rejected = await post(merchant.url, `${path}/confirm`, stale);
+    const rejected = await post({
+      url: merchant.url,
+      path: `${path}/confirm`,
+      body: stale,
+    });
     expect(rejected.status).toBe(409);
     const rejectedBody = await rejected.text();
     expect(JSON.parse(rejectedBody)).toMatchObject({
       error: { code: "payment_revision_conflict" },
     });
     expect(
-      await (await post(merchant.url, `${path}/confirm`, stale)).text(),
+      await (
+        await post({ url: merchant.url, path: `${path}/confirm`, body: stale })
+      ).text(),
     ).toBe(rejectedBody);
     expect(
       (
-        await post(merchant.url, `${path}/confirm`, {
-          ...stale,
-          expectedRevision: 3,
+        await post({
+          url: merchant.url,
+          path: `${path}/confirm`,
+          body: {
+            ...stale,
+            expectedRevision: 3,
+          },
         })
       ).status,
     ).toBe(409);
@@ -299,20 +404,24 @@ test("a stale confirmation stays rejected until a refreshed revision is delibera
     ).json();
     expect(refreshed).toMatchObject({ status: "FAILED", revision: 3 });
     expect(
-      rows(files.paybridge, "SELECT id FROM payment_attempts"),
+      rows({ path: files.paybridge, sql: "SELECT id FROM payment_attempts" }),
     ).toHaveLength(1);
     expect(
-      rows(
-        files.merchant,
-        "SELECT command_number FROM merchant_commands WHERE operation = 'confirm'",
-      ),
+      rows({
+        path: files.merchant,
+        sql: "SELECT command_number FROM merchant_commands WHERE operation = 'confirm'",
+      }),
     ).toHaveLength(2);
     expect(
       (
-        await post(merchant.url, `${path}/confirm`, {
-          ...stale,
-          commandNumber: 3,
-          expectedRevision: 3,
+        await post({
+          url: merchant.url,
+          path: `${path}/confirm`,
+          body: {
+            ...stale,
+            commandNumber: 3,
+            expectedRevision: 3,
+          },
         })
       ).status,
     ).toBe(202);
@@ -323,10 +432,10 @@ test("a stale confirmation stays rejected until a refreshed revision is delibera
       )
       .toBe("SUCCEEDED");
     expect(
-      rows(
-        files.paybridge,
-        "SELECT attempt_number FROM payment_attempts ORDER BY attempt_number",
-      ),
+      rows({
+        path: files.paybridge,
+        sql: "SELECT attempt_number FROM payment_attempts ORDER BY attempt_number",
+      }),
     ).toEqual([{ attempt_number: 1 }, { attempt_number: 2 }]);
   } finally {
     await merchant.stop();

@@ -13,16 +13,38 @@ test("storage preserves ownership, one binding, immutable commands, and lifetime
   });
   try {
     const a = orderIdentity.assert(
-      await (await post(merchant.url, "/merchant-a/orders", orderBody)).json(),
+      await (
+        await post({
+          url: merchant.url,
+          path: "/merchant-a/orders",
+          body: orderBody,
+        })
+      ).json(),
     );
     const b = orderIdentity.assert(
-      await (await post(merchant.url, "/merchant-b/orders", orderBody)).json(),
+      await (
+        await post({
+          url: merchant.url,
+          path: "/merchant-b/orders",
+          body: orderBody,
+        })
+      ).json(),
     );
     expect(
-      (await post(merchant.url, `/merchant-a/orders/${a.id}/payment`)).status,
+      (
+        await post({
+          url: merchant.url,
+          path: `/merchant-a/orders/${a.id}/payment`,
+        })
+      ).status,
     ).toBe(201);
     expect(
-      (await post(merchant.url, `/merchant-b/orders/${b.id}/payment`)).status,
+      (
+        await post({
+          url: merchant.url,
+          path: `/merchant-b/orders/${b.id}/payment`,
+        })
+      ).status,
     ).toBe(201);
     const db = new DatabaseSync(files.merchant);
     try {
@@ -76,10 +98,10 @@ test("storage preserves ownership, one binding, immutable commands, and lifetime
       db.close();
     }
     expect(
-      rows(
-        files.merchant,
-        "SELECT business_reference, merchant_id FROM orders ORDER BY merchant_id",
-      ),
+      rows({
+        path: files.merchant,
+        sql: "SELECT business_reference, merchant_id FROM orders ORDER BY merchant_id",
+      }),
     ).toEqual([
       { business_reference: "ORDER-1", merchant_id: "merchant-a" },
       { business_reference: "ORDER-1", merchant_id: "merchant-b" },

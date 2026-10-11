@@ -1,3 +1,4 @@
+import { fixtureReturnOrigins } from "../../contracts/fixtures.ts";
 import { randomBytes } from "node:crypto";
 import {
   createOrderInput,
@@ -10,7 +11,13 @@ import type { MerchantDatabase } from "./database.ts";
 export class MerchantError extends Error {
   readonly status: 404 | 409 | 502 | 503;
   readonly code: string;
-  constructor(status: 404 | 409 | 502 | 503, code: string) {
+  constructor({
+    status,
+    code,
+  }: {
+    status: 404 | 409 | 502 | 503;
+    code: string;
+  }) {
     super(code);
     this.status = status;
     this.code = code;
@@ -24,11 +31,12 @@ export async function seedContexts({
   db: MerchantDatabase;
   origin: string;
 }) {
-  for (const id of ["merchant-a", "merchant-b"]) {
+  const origins = fixtureReturnOrigins(origin);
+  for (const id of ["merchant-a", "merchant-b"] as const) {
     await db.runtime().execute(
       db.raw.sql`
       INSERT INTO merchant_contexts (id, return_url, webhook_url, created_at)
-      VALUES (${id}, ${`${origin}/${id}/payment-return`}, ${`${origin}/api/webhooks/paybridge/${id}`}, ${new Date().toISOString()})
+      VALUES (${id}, ${`${origins[id]}/${id}/payment-return`}, ${`${origin}/api/webhooks/paybridge/${id}`}, ${new Date().toISOString()})
       ON CONFLICT(id) DO NOTHING
     `
         .affectedCount()
@@ -50,7 +58,7 @@ export async function readOrder({
     id,
     merchantId: merchant.id,
   }).first();
-  if (!order) throw new MerchantError(404, "order_not_found");
+  if (!order) throw new MerchantError({ status: 404, code: "order_not_found" });
   const payment = await db.orm.MerchantPayment.where({
     orderId: id,
     merchantId: merchant.id,
@@ -98,7 +106,7 @@ export async function createOrder({
     stored.currency !== input.currency ||
     stored.description !== (input.description ?? null)
   )
-    throw new MerchantError(409, "order_input_conflict");
+    throw new MerchantError({ status: 409, code: "order_input_conflict" });
   return {
     created: inserted.affectedRows === 1,
     order: await readOrder({ db, merchant, id: orderId.assert(stored.id) }),

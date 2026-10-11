@@ -29,7 +29,7 @@ test("merchant payment methods match their own success, ownership, strict-input 
       contract,
       path: collection,
       method: "post",
-      response: await create(services.url),
+      response: await create({ url: services.url }),
       status: 201,
       headers: locationHeaders,
     }),
@@ -52,7 +52,7 @@ test("merchant payment methods match their own success, ownership, strict-input 
     contract,
     path: confirmation,
     method: "post",
-    response: await confirm(services.url, payment.id),
+    response: await confirm({ url: services.url, id: payment.id }),
     status: 202,
     headers: locationHeaders,
   });
@@ -61,7 +61,7 @@ test("merchant payment methods match their own success, ownership, strict-input 
       contract,
       path: confirmation,
       method: "post",
-      response: await confirm(services.url, payment.id),
+      response: await confirm({ url: services.url, id: payment.id }),
       status: 202,
       headers: locationHeaders,
     }),
@@ -82,7 +82,9 @@ test("merchant payment methods match their own success, ownership, strict-input 
     latestAttempt: { status: "PROCESSING" },
   });
   const pending = paymentIdentity.assert(
-    await (await create(services.url, { key: "cancel" })).json(),
+    await (
+      await create({ url: services.url, options: { key: "cancel" } })
+    ).json(),
   );
   const cancel = () =>
     fetch(`${services.url}${collection}/${pending.id}/cancel`, {
@@ -263,16 +265,19 @@ test("merchant payment methods match their own success, ownership, strict-input 
     expect(response.headers.get("retry-after")).toBeNull();
   }
   expect(
-    rows(
-      files.paybridge,
-      "SELECT status,revision FROM payment_intents ORDER BY status",
-    ),
+    rows({
+      path: files.paybridge,
+      sql: "SELECT status,revision FROM payment_intents ORDER BY status",
+    }),
   ).toEqual([
     { status: "CANCELLED", revision: 2 },
     { status: "PROCESSING", revision: 2 },
   ]);
   expect(
-    rows(files.paybridge, "SELECT count(*) AS count FROM payment_attempts"),
+    rows({
+      path: files.paybridge,
+      sql: "SELECT count(*) AS count FROM payment_attempts",
+    }),
   ).toEqual([{ count: 1 }]);
 });
 
@@ -281,7 +286,7 @@ test("checkout display, confirmation and leave each match their own JSON or empt
   await using services = await journey(files);
   const contract = await contractAt(services.url);
   const payment = paymentIdentity.assert(
-    await (await create(services.url)).json(),
+    await (await create({ url: services.url })).json(),
   );
   for (const [path, method] of [
     [display, "get"],
@@ -397,7 +402,10 @@ test("checkout display, confirmation and leave each match their own JSON or empt
     status: 400,
   });
   expect(
-    rows(files.paybridge, "SELECT status,revision FROM payment_intents"),
+    rows({
+      path: files.paybridge,
+      sql: "SELECT status,revision FROM payment_intents",
+    }),
   ).toEqual([{ status: "PENDING", revision: 1 }]);
   expect(
     await compareResponse({

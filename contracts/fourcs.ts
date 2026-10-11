@@ -297,3 +297,55 @@ export function buildFourcsResponse({
     )}</response>`,
   );
 }
+
+const responseFields = type({
+  Invoice: providerIdentifier,
+  TranId: providerIdentifier,
+  Amount: /^(0|[1-9][0-9]{0,7})\.[0-9]{2}$/,
+  Currency: /^[A-Z]{3}$/,
+  ResultCode: /^[A-Za-z]{1,64}$/,
+  FinancialResultCode: /^[A-Za-z]{0,32}$/,
+  "ErrorMessage?": "string <= 512",
+  "ApprovalCode?": /^[A-Za-z0-9]{0,12}$/,
+  "HostReference?": /^[A-Za-z0-9]{0,16}$/,
+  "BatchId?": /^[A-Za-z0-9]{0,16}$/,
+  "AVSResult?": /^[A-Za-z0-9]{0,10}$/,
+  "NetworkResponseCode?": /^[A-Za-z0-9]{0,32}$/,
+});
+
+export function parseFourcsResponse(xml: string) {
+  const operation = soapOperation(xml, "SSISProcessTransactionResponse");
+  const result = operation.children.find(
+    (child) => child.local === "SSISProcessTransactionResult",
+  );
+  const response = operation.children.find(
+    (child) => child.local === "response",
+  );
+  if (
+    operation.text.trim() ||
+    operation.children.length !== 2 ||
+    !result ||
+    !response ||
+    result.uri !== fourcsNamespace ||
+    response.uri !== fourcsNamespace ||
+    result.children.length ||
+    !/^[A-Za-z]{1,64}$/.test(result.text)
+  )
+    throw new SoapProtocolError();
+  const fields = responseFields(scalarFields(response));
+  if (fields instanceof type.errors) throw new SoapProtocolError();
+  return {
+    operation: result.text,
+    service: fields.ResultCode,
+    financial: fields.FinancialResultCode,
+    invoice: fields.Invoice,
+    tranId: fields.TranId,
+    amount: fields.Amount,
+    currency: fields.Currency,
+    hostReference: fields.HostReference || null,
+    approvalCode: fields.ApprovalCode || null,
+    batchId: fields.BatchId || null,
+    avsResult: fields.AVSResult || null,
+    networkResponseCode: fields.NetworkResponseCode || null,
+  };
+}

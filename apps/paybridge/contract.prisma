@@ -35,6 +35,7 @@ model PaymentIntent {
   attempts PaymentAttempt[]
   webhookWork WebhookOutbox[]
   @@unique([id, merchantId])
+  reconciliations Reconciliation[]
   @@map("payment_intents")
 }
 
@@ -93,6 +94,7 @@ model PaymentAttempt {
   updatedAt String @map("updated_at")
   payment PaymentIntent @relation(fields: [paymentIntentId], references: [id])
   providerWork ProviderOutbox[]
+  reconciliations Reconciliation[]
   @@unique([paymentIntentId, attemptNumber])
   @@unique([provider, providerTransactionId])
   @@map("payment_attempts")
@@ -112,6 +114,8 @@ model ProviderOutbox {
   lockedBy String? @map("locked_by")
   leaseExpiresAt String? @map("lease_expires_at")
   attempt PaymentAttempt @relation(fields: [paymentAttemptId], references: [id])
+  @@index([status, nextAttemptAt])
+  @@index([status, leaseExpiresAt])
   @@map("provider_outbox")
 }
 
@@ -135,4 +139,24 @@ model WebhookOutbox {
   payment PaymentIntent @relation(fields: [paymentIntentId], references: [id])
   event PaymentEvent @relation(fields: [paymentEventId], references: [id])
   @@map("webhook_outbox")
+}
+
+model Reconciliation {
+  id String @id
+  paymentIntentId String @map("payment_intent_id")
+  paymentAttemptId String @unique @map("payment_attempt_id")
+  status String
+  resolution String?
+  reason String
+  notes String?
+  evidenceReference String? @map("evidence_reference")
+  evidence String?
+  startedBy String? @map("started_by")
+  resolvedBy String? @map("resolved_by")
+  createdAt String @map("created_at")
+  startedAt String? @map("started_at")
+  resolvedAt String? @map("resolved_at")
+  payment PaymentIntent @relation(fields: [paymentIntentId], references: [id])
+  attempt PaymentAttempt @relation(fields: [paymentAttemptId], references: [id])
+  @@map("reconciliations")
 }

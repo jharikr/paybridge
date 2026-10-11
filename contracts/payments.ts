@@ -5,6 +5,8 @@ export const merchantId = type("string > 0").brand("MerchantId");
 export const paymentId = type(/^pi_[a-f0-9]{32}$/).brand("PaymentId");
 export const paymentStatus = type(
   "'PENDING' | 'PROCESSING' | 'SUCCEEDED' | 'FAILED' | 'UNKNOWN' | 'CANCELLED'",
+).describe(
+  "PROCESSING acknowledges an accepted attempt. SUCCEEDED means mock authorization and posting, not settlement. FAILED is a definite decline or final incomplete result. UNKNOWN requires reconciliation and blocks further attempts. Lookup returns persisted state and never submits provider work.",
 );
 // SQLite must preserve the original text, including valid surrogate pairs.
 const storedText = type(
@@ -60,7 +62,9 @@ export const latestAttempt = type({
   id: paymentAttemptId,
   attemptNumber: "number.integer >= 1",
   status: attemptStatus,
-  "failureCode?": "string",
+  "failureCode?": type("string <= 64").describe(
+    "Bounded provider classification. Declined and Incomplete are distinct definite failures; ambiguous transport, protocol, and duplicate outcomes remain UNKNOWN.",
+  ),
   "+": "reject",
 });
 export const paymentSnapshot = type({

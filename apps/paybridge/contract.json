@@ -28,6 +28,10 @@
       "model": "ProviderOutbox",
       "namespace": "__unbound__"
     },
+    "reconciliations": {
+      "model": "Reconciliation",
+      "namespace": "__unbound__"
+    },
     "webhook_outbox": {
       "model": "WebhookOutbox",
       "namespace": "__unbound__"
@@ -478,6 +482,21 @@
                   "model": "ProviderOutbox",
                   "namespace": "__unbound__"
                 }
+              },
+              "reconciliations": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "paymentAttemptId"
+                  ]
+                },
+                "to": {
+                  "model": "Reconciliation",
+                  "namespace": "__unbound__"
+                }
               }
             },
             "storage": {
@@ -829,6 +848,21 @@
                   "namespace": "__unbound__"
                 }
               },
+              "reconciliations": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "paymentIntentId"
+                  ]
+                },
+                "to": {
+                  "model": "Reconciliation",
+                  "namespace": "__unbound__"
+                }
+              },
               "webhookWork": {
                 "cardinality": "1:N",
                 "on": {
@@ -1037,6 +1071,190 @@
               },
               "namespaceId": "__unbound__",
               "table": "provider_outbox"
+            }
+          },
+          "Reconciliation": {
+            "fields": {
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "evidence": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "evidenceReference": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "notes": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "paymentAttemptId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "paymentIntentId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "reason": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "resolution": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "resolvedAt": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "resolvedBy": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "startedAt": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "startedBy": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "status": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sqlite/text@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {
+              "attempt": {
+                "cardinality": "N:1",
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "paymentAttemptId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "PaymentAttempt",
+                  "namespace": "__unbound__"
+                }
+              },
+              "payment": {
+                "cardinality": "N:1",
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "paymentIntentId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "PaymentIntent",
+                  "namespace": "__unbound__"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "createdAt": {
+                  "column": "created_at"
+                },
+                "evidence": {
+                  "column": "evidence"
+                },
+                "evidenceReference": {
+                  "column": "evidence_reference"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "notes": {
+                  "column": "notes"
+                },
+                "paymentAttemptId": {
+                  "column": "payment_attempt_id"
+                },
+                "paymentIntentId": {
+                  "column": "payment_intent_id"
+                },
+                "reason": {
+                  "column": "reason"
+                },
+                "resolution": {
+                  "column": "resolution"
+                },
+                "resolvedAt": {
+                  "column": "resolved_at"
+                },
+                "resolvedBy": {
+                  "column": "resolved_by"
+                },
+                "startedAt": {
+                  "column": "started_at"
+                },
+                "startedBy": {
+                  "column": "started_by"
+                },
+                "status": {
+                  "column": "status"
+                }
+              },
+              "namespaceId": "__unbound__",
+              "table": "reconciliations"
             }
           },
           "WebhookOutbox": {
@@ -1845,7 +2063,156 @@
                   }
                 }
               ],
-              "indexes": [],
+              "indexes": [
+                {
+                  "columns": [
+                    "status",
+                    "lease_expires_at"
+                  ],
+                  "name": "provider_outbox_status_lease_expires_at_idx_7b34d2bd",
+                  "prefix": "provider_outbox_status_lease_expires_at_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "status",
+                    "next_attempt_at"
+                  ],
+                  "name": "provider_outbox_status_next_attempt_at_idx_139f8e47",
+                  "prefix": "provider_outbox_status_next_attempt_at_idx",
+                  "unique": false
+                }
+              ],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ]
+              },
+              "uniques": [
+                {
+                  "columns": [
+                    "payment_attempt_id"
+                  ]
+                }
+              ]
+            },
+            "reconciliations": {
+              "columns": {
+                "created_at": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": false
+                },
+                "evidence": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": true
+                },
+                "evidence_reference": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": true
+                },
+                "id": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": false
+                },
+                "notes": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": true
+                },
+                "payment_attempt_id": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": false
+                },
+                "payment_intent_id": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": false
+                },
+                "reason": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": false
+                },
+                "resolution": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": true
+                },
+                "resolved_at": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": true
+                },
+                "resolved_by": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": true
+                },
+                "started_at": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": true
+                },
+                "started_by": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": true
+                },
+                "status": {
+                  "codecId": "sqlite/text@1",
+                  "dataType": "sqlite/text",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [
+                {
+                  "source": {
+                    "columns": [
+                      "payment_intent_id"
+                    ],
+                    "namespaceId": "__unbound__",
+                    "tableName": "reconciliations"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "__unbound__",
+                    "tableName": "payment_intents"
+                  }
+                },
+                {
+                  "source": {
+                    "columns": [
+                      "payment_attempt_id"
+                    ],
+                    "namespaceId": "__unbound__",
+                    "tableName": "reconciliations"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "__unbound__",
+                    "tableName": "payment_attempts"
+                  }
+                }
+              ],
+              "indexes": [
+                {
+                  "columns": [
+                    "payment_intent_id"
+                  ],
+                  "name": "reconciliations_payment_intent_id_idx_2dc6a9d2",
+                  "prefix": "reconciliations_payment_intent_id_idx",
+                  "unique": false
+                }
+              ],
               "primaryKey": {
                 "columns": [
                   "id"
@@ -2023,7 +2390,7 @@
         "id": "__unbound__"
       }
     },
-    "storageHash": "668fba7bd586d6ca897717a237ca3168f1a4d85aeace6872024ae7d849d6564c"
+    "storageHash": "b81791e37db9f73e826b73c7def36cc02f1057bb1ba5ead750406228108cbb06"
   },
   "capabilities": {
     "sql": {

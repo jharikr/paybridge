@@ -1,0 +1,557 @@
+[
+  {
+    "id": "table.merchant_commands",
+    "label": "Create merchant_commands",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "table",
+        "name": "merchant_commands"
+      }
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create merchant_commands",
+        "sql": "CREATE TABLE \"merchant_commands\" (\n  \"command_number\" INTEGER NOT NULL,\n  \"completed_at\" TEXT,\n  \"created_at\" TEXT NOT NULL,\n  \"id\" TEXT NOT NULL,\n  \"idempotency_key\" TEXT NOT NULL,\n  \"merchant_id\" TEXT NOT NULL,\n  \"operation\" TEXT NOT NULL,\n  \"order_id\" TEXT NOT NULL,\n  \"request_body\" TEXT NOT NULL,\n  \"response_body\" TEXT,\n  \"response_headers\" TEXT,\n  \"response_status\" INTEGER,\n  \"status\" TEXT NOT NULL,\n  \"target\" TEXT NOT NULL,\n  PRIMARY KEY (\"id\"),\n  UNIQUE (\"merchant_id\", \"idempotency_key\"),\n  UNIQUE (\"merchant_id\", \"order_id\", \"operation\", \"command_number\"),\n  FOREIGN KEY (\"order_id\") REFERENCES \"orders\" (\"id\"),\n  FOREIGN KEY (order_id, merchant_id) REFERENCES orders(id, merchant_id),\n  CHECK (typeof(command_number) = 'integer' AND command_number BETWEEN 1 AND 9007199254740991),\n  CHECK (length(idempotency_key) BETWEEN 1 AND 128),\n  CHECK (json_valid(request_body)),\n  CHECK ((operation = 'create' AND command_number = 1 AND target = '/v1/payment-intents') OR (operation = 'confirm' AND target GLOB '/v1/payment-intents/pi_*/confirm')),\n  CHECK ((status = 'PREPARED' AND response_status IS NULL AND response_body IS NULL AND response_headers IS NULL AND completed_at IS NULL) OR (status = 'COMPLETED' AND typeof(response_status) = 'integer' AND response_status BETWEEN 200 AND 499 AND response_body IS NOT NULL AND response_headers IS NOT NULL AND json_valid(response_headers) AND completed_at IS NOT NULL))\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify merchant_commands",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = ? AND name = ?",
+        "params": [
+          "table",
+          "merchant_commands"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.merchant_contexts",
+    "label": "Create merchant_contexts",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "table",
+        "name": "merchant_contexts"
+      }
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create merchant_contexts",
+        "sql": "CREATE TABLE \"merchant_contexts\" (\n  \"created_at\" TEXT NOT NULL,\n  \"id\" TEXT NOT NULL,\n  \"return_url\" TEXT NOT NULL,\n  \"webhook_url\" TEXT NOT NULL,\n  PRIMARY KEY (\"id\"),\n  CHECK (id IN ('merchant-a', 'merchant-b'))\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify merchant_contexts",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = ? AND name = ?",
+        "params": [
+          "table",
+          "merchant_contexts"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.merchant_payments",
+    "label": "Create merchant_payments",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "table",
+        "name": "merchant_payments"
+      }
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create merchant_payments",
+        "sql": "CREATE TABLE \"merchant_payments\" (\n  \"created_at\" TEXT NOT NULL,\n  \"last_applied_revision\" INTEGER NOT NULL,\n  \"merchant_id\" TEXT NOT NULL,\n  \"order_id\" TEXT NOT NULL,\n  \"payment_intent_id\" TEXT NOT NULL,\n  \"snapshot\" TEXT,\n  \"status\" TEXT,\n  \"updated_at\" TEXT NOT NULL,\n  PRIMARY KEY (\"payment_intent_id\"),\n  UNIQUE (\"order_id\"),\n  UNIQUE (\"payment_intent_id\", \"merchant_id\", \"order_id\"),\n  FOREIGN KEY (\"order_id\") REFERENCES \"orders\" (\"id\"),\n  FOREIGN KEY (order_id, merchant_id) REFERENCES orders(id, merchant_id),\n  CHECK (typeof(last_applied_revision) = 'integer' AND last_applied_revision BETWEEN 0 AND 9007199254740991),\n  CHECK ((last_applied_revision = 0 AND status IS NULL AND snapshot IS NULL) OR (last_applied_revision > 0 AND status IS NOT NULL AND status IN ('PENDING', 'PROCESSING', 'SUCCEEDED', 'FAILED', 'UNKNOWN', 'CANCELLED') AND snapshot IS NOT NULL AND json_valid(snapshot)))\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify merchant_payments",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = ? AND name = ?",
+        "params": [
+          "table",
+          "merchant_payments"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.orders",
+    "label": "Create orders",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "table",
+        "name": "orders"
+      }
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create orders",
+        "sql": "CREATE TABLE \"orders\" (\n  \"amount\" INTEGER NOT NULL,\n  \"business_reference\" TEXT NOT NULL,\n  \"created_at\" TEXT NOT NULL,\n  \"currency\" TEXT NOT NULL,\n  \"description\" TEXT,\n  \"id\" TEXT NOT NULL,\n  \"merchant_id\" TEXT NOT NULL,\n  \"paid_at\" TEXT,\n  \"state\" TEXT NOT NULL,\n  \"updated_at\" TEXT NOT NULL,\n  PRIMARY KEY (\"id\"),\n  UNIQUE (\"merchant_id\", \"business_reference\"),\n  UNIQUE (\"id\", \"merchant_id\"),\n  FOREIGN KEY (\"merchant_id\") REFERENCES \"merchant_contexts\" (\"id\"),\n  CHECK (typeof(amount) = 'integer' AND amount BETWEEN 1 AND 9999999999),\n  CHECK (currency = 'XCD'),\n  CHECK (length(business_reference) BETWEEN 1 AND 128),\n  CHECK (description IS NULL OR length(description) <= 256),\n  CHECK ((state = 'UNPAID' AND paid_at IS NULL) OR (state = 'PAID' AND paid_at IS NOT NULL))\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify orders",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = ? AND name = ?",
+        "params": [
+          "table",
+          "orders"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.merchant_commands_order_id_idx_39ad19ad",
+    "label": "Create merchant_commands_order_id_idx_39ad19ad",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "index",
+        "name": "merchant_commands_order_id_idx_39ad19ad"
+      }
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create merchant_commands_order_id_idx_39ad19ad",
+        "sql": "CREATE INDEX \"merchant_commands_order_id_idx_39ad19ad\" ON \"merchant_commands\" (\"order_id\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify merchant_commands_order_id_idx_39ad19ad",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = ? AND name = ?",
+        "params": [
+          "index",
+          "merchant_commands_order_id_idx_39ad19ad"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.orders_merchant_id_idx_92be5ce7",
+    "label": "Create orders_merchant_id_idx_92be5ce7",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "index",
+        "name": "orders_merchant_id_idx_92be5ce7"
+      }
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create orders_merchant_id_idx_92be5ce7",
+        "sql": "CREATE INDEX \"orders_merchant_id_idx_92be5ce7\" ON \"orders\" (\"merchant_id\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify orders_merchant_id_idx_92be5ce7",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = ? AND name = ?",
+        "params": [
+          "index",
+          "orders_merchant_id_idx_92be5ce7"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.one_prepared_command",
+    "label": "Create one_prepared_command",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "index",
+        "name": "one_prepared_command"
+      }
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create one_prepared_command",
+        "sql": "CREATE UNIQUE INDEX one_prepared_command ON merchant_commands(merchant_id, order_id, operation) WHERE status = 'PREPARED'",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify one_prepared_command",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = ? AND name = ?",
+        "params": [
+          "index",
+          "one_prepared_command"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "trigger.merchant_context_fixed",
+    "label": "Create merchant_context_fixed",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create merchant_context_fixed",
+        "sql": "CREATE TRIGGER merchant_context_fixed BEFORE UPDATE ON merchant_contexts BEGIN SELECT RAISE(ABORT, 'merchant_context_fixed'); END",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify merchant_context_fixed",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = ? AND name = ?",
+        "params": [
+          "trigger",
+          "merchant_context_fixed"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "trigger.order_identity_fixed",
+    "label": "Create order_identity_fixed",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create order_identity_fixed",
+        "sql": "CREATE TRIGGER order_identity_fixed BEFORE UPDATE ON orders WHEN NEW.id IS NOT OLD.id OR NEW.merchant_id IS NOT OLD.merchant_id OR NEW.business_reference IS NOT OLD.business_reference OR NEW.amount IS NOT OLD.amount OR NEW.currency IS NOT OLD.currency OR NEW.description IS NOT OLD.description OR NEW.created_at IS NOT OLD.created_at BEGIN SELECT RAISE(ABORT, 'order_identity_fixed'); END",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify order_identity_fixed",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = ? AND name = ?",
+        "params": [
+          "trigger",
+          "order_identity_fixed"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "trigger.paid_order_retained",
+    "label": "Create paid_order_retained",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create paid_order_retained",
+        "sql": "CREATE TRIGGER paid_order_retained BEFORE UPDATE ON orders WHEN OLD.state = 'PAID' AND (NEW.state != 'PAID' OR NEW.paid_at IS NOT OLD.paid_at) BEGIN SELECT RAISE(ABORT, 'paid_order_retained'); END",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify paid_order_retained",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = ? AND name = ?",
+        "params": [
+          "trigger",
+          "paid_order_retained"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "trigger.payment_binding_fixed",
+    "label": "Create payment_binding_fixed",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create payment_binding_fixed",
+        "sql": "CREATE TRIGGER payment_binding_fixed BEFORE UPDATE ON merchant_payments WHEN NEW.payment_intent_id IS NOT OLD.payment_intent_id OR NEW.merchant_id IS NOT OLD.merchant_id OR NEW.order_id IS NOT OLD.order_id OR NEW.created_at IS NOT OLD.created_at BEGIN SELECT RAISE(ABORT, 'payment_binding_fixed'); END",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify payment_binding_fixed",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = ? AND name = ?",
+        "params": [
+          "trigger",
+          "payment_binding_fixed"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "trigger.payment_view_revision_monotonic",
+    "label": "Create payment_view_revision_monotonic",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create payment_view_revision_monotonic",
+        "sql": "CREATE TRIGGER payment_view_revision_monotonic BEFORE UPDATE ON merchant_payments WHEN NEW.last_applied_revision < OLD.last_applied_revision OR (NEW.last_applied_revision = OLD.last_applied_revision AND (NEW.status IS NOT OLD.status OR NEW.snapshot IS NOT OLD.snapshot)) BEGIN SELECT RAISE(ABORT, 'payment_view_revision_monotonic'); END",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify payment_view_revision_monotonic",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = ? AND name = ?",
+        "params": [
+          "trigger",
+          "payment_view_revision_monotonic"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "trigger.merchant_command_identity_fixed",
+    "label": "Create merchant_command_identity_fixed",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create merchant_command_identity_fixed",
+        "sql": "CREATE TRIGGER merchant_command_identity_fixed BEFORE UPDATE ON merchant_commands WHEN NEW.id IS NOT OLD.id OR NEW.merchant_id IS NOT OLD.merchant_id OR NEW.order_id IS NOT OLD.order_id OR NEW.operation IS NOT OLD.operation OR NEW.command_number IS NOT OLD.command_number OR NEW.idempotency_key IS NOT OLD.idempotency_key OR NEW.target IS NOT OLD.target OR NEW.request_body IS NOT OLD.request_body OR NEW.created_at IS NOT OLD.created_at BEGIN SELECT RAISE(ABORT, 'merchant_command_identity_fixed'); END",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify merchant_command_identity_fixed",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = ? AND name = ?",
+        "params": [
+          "trigger",
+          "merchant_command_identity_fixed"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "trigger.merchant_command_completed_fixed",
+    "label": "Create merchant_command_completed_fixed",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create merchant_command_completed_fixed",
+        "sql": "CREATE TRIGGER merchant_command_completed_fixed BEFORE UPDATE ON merchant_commands WHEN OLD.status = 'COMPLETED' BEGIN SELECT RAISE(ABORT, 'merchant_command_completed_fixed'); END",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify merchant_command_completed_fixed",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = ? AND name = ?",
+        "params": [
+          "trigger",
+          "merchant_command_completed_fixed"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "trigger.confirmation_requires_owned_binding",
+    "label": "Create confirmation_requires_owned_binding",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create confirmation_requires_owned_binding",
+        "sql": "CREATE TRIGGER confirmation_requires_owned_binding BEFORE INSERT ON merchant_commands WHEN NEW.operation = 'confirm' AND NOT EXISTS (SELECT 1 FROM merchant_payments WHERE merchant_id = NEW.merchant_id AND order_id = NEW.order_id AND NEW.target = '/v1/payment-intents/' || payment_intent_id || '/confirm') BEGIN SELECT RAISE(ABORT, 'confirmation_requires_owned_binding'); END",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify confirmation_requires_owned_binding",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = ? AND name = ?",
+        "params": [
+          "trigger",
+          "confirmation_requires_owned_binding"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "trigger.binding_requires_completed_creation",
+    "label": "Create binding_requires_completed_creation",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create binding_requires_completed_creation",
+        "sql": "CREATE TRIGGER binding_requires_completed_creation BEFORE INSERT ON merchant_payments WHEN NOT EXISTS (SELECT 1 FROM merchant_commands WHERE merchant_id = NEW.merchant_id AND order_id = NEW.order_id AND operation = 'create' AND status = 'COMPLETED' AND response_status = 201 AND json_extract(response_body, '$.id') = NEW.payment_intent_id) BEGIN SELECT RAISE(ABORT, 'binding_requires_completed_creation'); END",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify binding_requires_completed_creation",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = ? AND name = ?",
+        "params": [
+          "trigger",
+          "binding_requires_completed_creation"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "trigger.merchant_contexts_retained",
+    "label": "Create merchant_contexts_retained",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create merchant_contexts_retained",
+        "sql": "CREATE TRIGGER merchant_contexts_retained BEFORE DELETE ON merchant_contexts BEGIN SELECT RAISE(ABORT, 'merchant_contexts_retained'); END",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify merchant_contexts_retained",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = ? AND name = ?",
+        "params": [
+          "trigger",
+          "merchant_contexts_retained"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "trigger.orders_retained",
+    "label": "Create orders_retained",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create orders_retained",
+        "sql": "CREATE TRIGGER orders_retained BEFORE DELETE ON orders BEGIN SELECT RAISE(ABORT, 'orders_retained'); END",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify orders_retained",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = ? AND name = ?",
+        "params": [
+          "trigger",
+          "orders_retained"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "trigger.merchant_payments_retained",
+    "label": "Create merchant_payments_retained",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create merchant_payments_retained",
+        "sql": "CREATE TRIGGER merchant_payments_retained BEFORE DELETE ON merchant_payments BEGIN SELECT RAISE(ABORT, 'merchant_payments_retained'); END",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify merchant_payments_retained",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = ? AND name = ?",
+        "params": [
+          "trigger",
+          "merchant_payments_retained"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "trigger.merchant_commands_retained",
+    "label": "Create merchant_commands_retained",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create merchant_commands_retained",
+        "sql": "CREATE TRIGGER merchant_commands_retained BEFORE DELETE ON merchant_commands BEGIN SELECT RAISE(ABORT, 'merchant_commands_retained'); END",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify merchant_commands_retained",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = ? AND name = ?",
+        "params": [
+          "trigger",
+          "merchant_commands_retained"
+        ]
+      }
+    ]
+  }
+]

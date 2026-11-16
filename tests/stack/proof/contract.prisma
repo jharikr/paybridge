@@ -1,0 +1,28 @@
+// use prisma-8
+
+model ProofRecord {
+  id String @id
+  label String
+  amount Int
+  attempts ProofAttempt[]
+
+  @@map("proof_records")
+}
+
+model ProofAttempt {
+  id String @id
+  recordId String @map("record_id")
+  status String
+  record ProofRecord @relation(fields: [recordId], references: [id])
+
+  @@map("proof_attempts")
+}
+
+model ProofWork {
+  id String @id
+  status String
+  claimToken String? @map("claim_token")
+  leaseUntil Int? @map("lease_until")
+
+  @@map("proof_work")
+}

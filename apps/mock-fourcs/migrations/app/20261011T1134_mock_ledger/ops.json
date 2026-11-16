@@ -1,0 +1,81 @@
+[
+  {
+    "id": "table.mock_transactions",
+    "label": "Create table mock_transactions",
+    "summary": "Creates table mock_transactions with required columns",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "table",
+        "name": "mock_transactions"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"mock_transactions\" does not exist",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "table",
+          "mock_transactions"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"mock_transactions\"",
+        "sql": "CREATE TABLE \"mock_transactions\" (\n  \"accepted_at\" TEXT NOT NULL,\n  \"amount_minor\" INTEGER NOT NULL,\n  \"approval_code\" TEXT,\n  \"currency\" TEXT NOT NULL,\n  \"effect_count\" INTEGER NOT NULL,\n  \"final_outcome\" TEXT NOT NULL,\n  \"host_reference\" TEXT NOT NULL,\n  \"id\" TEXT NOT NULL,\n  \"invoice\" TEXT NOT NULL,\n  \"payment_method_ref\" TEXT NOT NULL,\n  \"provider_account\" TEXT NOT NULL,\n  \"request_fingerprint\" TEXT NOT NULL,\n  \"tran_id\" TEXT NOT NULL,\n  PRIMARY KEY (\"id\"),\n  UNIQUE (\"provider_account\", \"tran_id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"mock_transactions\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "table",
+          "mock_transactions"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "ledger.constraints",
+    "label": "Enforce final synthetic ledger facts",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "table",
+        "name": "mock_transactions"
+      }
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Validate accepted facts",
+        "sql": "CREATE TRIGGER mock_transactions_validate BEFORE INSERT ON mock_transactions\n            WHEN NEW.provider_account NOT IN ('mock-account-a', 'mock-account-b')\n              OR typeof(NEW.amount_minor) <> 'integer' OR NEW.amount_minor NOT BETWEEN 1 AND 9999999999\n              OR NEW.currency <> 'XCD' OR NEW.final_outcome NOT IN ('Approved', 'Declined', 'Incomplete')\n              OR NEW.effect_count <> CASE WHEN NEW.final_outcome = 'Approved' THEN 1 ELSE 0 END\n              OR length(NEW.tran_id) NOT BETWEEN 1 AND 16 OR NEW.tran_id GLOB '*[^A-Za-z0-9]*'\n              OR length(NEW.invoice) NOT BETWEEN 1 AND 16 OR NEW.invoice GLOB '*[^A-Za-z0-9]*'\n            BEGIN SELECT RAISE(ABORT, 'Invalid synthetic ledger facts'); END",
+        "params": []
+      },
+      {
+        "description": "Retain original facts",
+        "sql": "CREATE TRIGGER mock_transactions_no_update BEFORE UPDATE ON mock_transactions\n            BEGIN SELECT RAISE(ABORT, 'Mock ledger facts are immutable'); END",
+        "params": []
+      },
+      {
+        "description": "Retain ledger history",
+        "sql": "CREATE TRIGGER mock_transactions_no_delete BEFORE DELETE ON mock_transactions\n            BEGIN SELECT RAISE(ABORT, 'Mock ledger facts are immutable'); END",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify ledger guards",
+        "sql": "SELECT COUNT(*) = 3 AS result FROM sqlite_master WHERE type = 'trigger' AND tbl_name = 'mock_transactions'",
+        "params": []
+      }
+    ]
+  }
+]

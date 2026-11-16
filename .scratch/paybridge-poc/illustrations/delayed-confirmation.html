@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A delayed payment request</title>
+<style>
+html, body { margin: 0; background: transparent; color: var(--foreground); font-family: var(--font-sans, system-ui); font-size: var(--font-size-base, 14px); }
+* { box-sizing: border-box; }
+#delayed-confirmation { width: 100%; padding: 0; }
+.context { margin: 0 0 16px; color: var(--muted-foreground); }
+.tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.tab-node { padding: 16px; border-radius: var(--radius); background: var(--secondary); color: var(--secondary-foreground); }
+.tab-node strong, .tab-node span { display: block; }
+.tab-node strong { font-weight: 500; margin-bottom: 8px; }
+.tab-node span + span { margin-top: 5px; }
+.connector { display: flex; justify-content: center; padding: 10px 0; color: var(--muted-foreground); }
+.switcher { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.policy { font: inherit; border: 1px solid var(--border); padding: 10px 14px; border-radius: var(--radius); background: transparent; color: var(--foreground); min-height: 44px; }
+.policy[aria-pressed="true"] { background: var(--primary); color: var(--primary-foreground); border-color: var(--primary); }
+.timeline { list-style: none; padding: 0; margin: 0; }
+.step { position: relative; display: grid; grid-template-columns: 28px minmax(0, 1fr) 22px minmax(0, 1fr); gap: 8px; align-items: center; padding: 10px 0 22px; }
+.step:not(:last-child)::after { content: ''; position: absolute; left: 12px; top: 40px; bottom: -8px; width: 1px; background: var(--border); }
+.number { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--secondary); color: var(--secondary-foreground); }
+.arrow { color: var(--muted-foreground); text-align: center; }
+.event, .state { min-width: 0; overflow-wrap: anywhere; }
+.event strong, .state strong { display: block; font-weight: 500; }
+.detail { display: block; color: var(--muted-foreground); margin-top: 5px; }
+.result { background: var(--warning-surface); color: var(--foreground); padding: 16px; border-radius: var(--radius); }
+.result.safe { background: var(--accent-surface); color: var(--accent-surface-foreground); }
+.result .detail { color: inherit; }
+.after { border-top: 1px solid var(--border); padding-top: 14px; margin-top: 2px; }
+.after strong { font-weight: 500; }
+.after p { margin: 0; }
+.after p + p { margin-top: 6px; }
+@media (max-width: 440px) {
+  .step { grid-template-columns: 28px minmax(0, 1fr); gap: 8px 10px; }
+  .step .event { grid-column: 2; }
+  .step .arrow { display: none; }
+  .step .state { grid-column: 2; }
+  .number { align-self: start; }
+  .tabs { gap: 8px; }
+}
+</style>
+</head>
+<body>
+<figure id="delayed-confirmation" style="margin:0" aria-label="The same payment in two browser tabs, with a delayed confirmation request">
+  <figcaption class="context">One payment · Two browser tabs · Different command keys</figcaption>
+  <div class="tabs">
+    <div class="tab-node"><strong>Tab A</strong><span>Sees payment version 1</span><span>Clicks Pay → request A</span></div>
+    <div class="tab-node"><strong>Tab B</strong><span>Sees payment version 1</span><span>Clicks Pay → request B</span></div>
+  </div>
+  <div class="connector" aria-hidden="true">↓ &nbsp; Requests arrive at different times &nbsp; ↓</div>
+  <div class="switcher" role="group" aria-label="Compare confirmation rules">
+    <button class="policy" type="button" data-policy="draft" aria-pressed="true">Current draft</button>
+    <button class="policy" type="button" data-policy="guard" aria-pressed="false">Proposed version check</button>
+  </div>
+  <ol class="timeline">
+    <li class="step">
+      <span class="number" aria-hidden="true">1</span>
+      <div class="event"><strong>Request A arrives</strong><span class="detail">Tab A's click</span></div>
+      <span class="arrow" aria-hidden="true">→</span>
+      <div class="state"><strong>Attempt 1 starts</strong><span class="detail">Payment version 2 · Processing</span></div>
+    </li>
+    <li class="step">
+      <span class="number" aria-hidden="true">2</span>
+      <div class="event"><strong>Request B is delayed</strong><span class="detail">It was sent before the decline</span></div>
+      <span class="arrow" aria-hidden="true">⋯</span>
+      <div class="state"><strong>No second attempt yet</strong><span class="detail">Tab B's request is based on version 1</span></div>
+    </li>
+    <li class="step">
+      <span class="number" aria-hidden="true">3</span>
+      <div class="event"><strong>Mock bank declines attempt 1</strong><span class="detail">Paybridge records the decline</span></div>
+      <span class="arrow" aria-hidden="true">→</span>
+      <div class="state"><strong>Payment version 3 · Failed</strong><span class="detail">A deliberate new attempt is allowed</span></div>
+    </li>
+    <li class="step">
+      <span class="number" aria-hidden="true">4</span>
+      <div class="event"><strong>The old request B arrives</strong><span class="detail">Nobody has clicked again after the decline</span></div>
+      <span class="arrow" aria-hidden="true">→</span>
+      <div id="outcome" class="state result" aria-live="polite"><strong id="outcome-title">Attempt 2 starts anyway</strong><span id="outcome-detail" class="detail">The draft sees Failed + a new command key.</span></div>
+    </li>
+  </ol>
+  <div class="after" aria-live="polite">
+    <p id="decision"><strong>An earlier click has become an extra payment attempt.</strong></p>
+    <p id="retry" class="detail">The first attempt declined. This example does not produce two successful payments.</p>
+  </div>
+</figure>
+<script>
+(() => {
+  const root = document.getElementById('delayed-confirmation');
+  const buttons = [...root.querySelectorAll('[data-policy]')];
+  const outcome = root.querySelector('#outcome');
+  const title = root.querySelector('#outcome-title');
+  const detail = root.querySelector('#outcome-detail');
+  const decision = root.querySelector('#decision strong');
+  const retry = root.querySelector('#retry');
+  function selectPolicy(policy) {
+    const guarded = policy === 'guard';
+    for (const button of buttons) button.setAttribute('aria-pressed', String(button.dataset.policy === policy));
+    outcome.classList.toggle('safe', guarded);
+    title.textContent = guarded ? 'Old request rejected' : 'Attempt 2 starts anyway';
+    detail.textContent = guarded ? 'Request expects version 1. Payment is now version 3.' : 'The draft sees Failed + a new command key.';
+    decision.textContent = guarded ? 'The app refreshes the payment before offering Try again.' : 'An earlier click has become an extra payment attempt.';
+    retry.textContent = guarded ? 'A new click based on version 3 can start attempt 2. No version number is shown to the payer.' : 'The first attempt declined. This example does not produce two successful payments.';
+  }
+  buttons.forEach(button => button.addEventListener('click', () => selectPolicy(button.dataset.policy)));
+})();
+</script>
+</body>
+</html>

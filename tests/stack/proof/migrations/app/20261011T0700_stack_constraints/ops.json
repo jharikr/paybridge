@@ -1,0 +1,99 @@
+[
+  {
+    "id": "table.proof_attempts",
+    "label": "Create constrained proof attempts",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "table",
+        "name": "proof_attempts"
+      }
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create proof attempts with foreign key and state check",
+        "sql": "CREATE TABLE proof_attempts (\n            id TEXT NOT NULL PRIMARY KEY,\n            record_id TEXT NOT NULL REFERENCES proof_records(id),\n            status TEXT NOT NULL CHECK (status IN ('PROCESSING', 'UNKNOWN', 'FAILED', 'SUCCEEDED'))\n          )",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify proof attempts",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = 'table' AND name = 'proof_attempts'",
+        "params": []
+      }
+    ]
+  },
+  {
+    "id": "index.proof_attempts.proof_attempts_record_id_idx_ab8d411c",
+    "label": "Create index proof_attempts_record_id_idx_ab8d411c on proof_attempts",
+    "summary": "Creates index proof_attempts_record_id_idx_ab8d411c on proof_attempts",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "index",
+        "name": "proof_attempts_record_id_idx_ab8d411c",
+        "table": "proof_attempts"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"proof_attempts_record_id_idx_ab8d411c\" is missing",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "proof_attempts_record_id_idx_ab8d411c"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"proof_attempts_record_id_idx_ab8d411c\"",
+        "sql": "CREATE INDEX \"proof_attempts_record_id_idx_ab8d411c\" ON \"proof_attempts\" (\"record_id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"proof_attempts_record_id_idx_ab8d411c\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "proof_attempts_record_id_idx_ab8d411c"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.proof_attempts.unresolved",
+    "label": "Allow only one unresolved proof attempt",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "index",
+        "name": "proof_attempts_one_unresolved"
+      }
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create partial unique index",
+        "sql": "CREATE UNIQUE INDEX proof_attempts_one_unresolved ON proof_attempts(record_id) WHERE status IN ('PROCESSING', 'UNKNOWN')",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify partial unique index",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = 'index' AND name = 'proof_attempts_one_unresolved'",
+        "params": []
+      }
+    ]
+  }
+]

@@ -1,0 +1,43 @@
+[
+  {
+    "id": "table.proof_work",
+    "label": "Create table proof_work",
+    "summary": "Creates table proof_work with required columns",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "table",
+        "name": "proof_work"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"proof_work\" does not exist",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "table",
+          "proof_work"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"proof_work\"",
+        "sql": "CREATE TABLE \"proof_work\" (\n  \"claim_token\" TEXT,\n  \"id\" TEXT NOT NULL,\n  \"lease_until\" INTEGER,\n  \"status\" TEXT NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"proof_work\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "table",
+          "proof_work"
+        ]
+      }
+    ]
+  }
+]

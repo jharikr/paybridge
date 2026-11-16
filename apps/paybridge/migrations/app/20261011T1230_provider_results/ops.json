@@ -1,0 +1,316 @@
+[
+  {
+    "id": "table.reconciliations",
+    "label": "Create table reconciliations",
+    "summary": "Creates table reconciliations with required columns",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "table",
+        "name": "reconciliations"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"reconciliations\" does not exist",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "table",
+          "reconciliations"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"reconciliations\"",
+        "sql": "CREATE TABLE \"reconciliations\" (\n  \"created_at\" TEXT NOT NULL,\n  \"evidence\" TEXT,\n  \"evidence_reference\" TEXT,\n  \"id\" TEXT NOT NULL,\n  \"notes\" TEXT,\n  \"payment_attempt_id\" TEXT NOT NULL,\n  \"payment_intent_id\" TEXT NOT NULL,\n  \"reason\" TEXT NOT NULL,\n  \"resolution\" TEXT,\n  \"resolved_at\" TEXT,\n  \"resolved_by\" TEXT,\n  \"started_at\" TEXT,\n  \"started_by\" TEXT,\n  \"status\" TEXT NOT NULL,\n  PRIMARY KEY (\"id\"),\n  UNIQUE (\"payment_attempt_id\"),\n  FOREIGN KEY (\"payment_intent_id\") REFERENCES \"payment_intents\" (\"id\"),\n  FOREIGN KEY (\"payment_attempt_id\") REFERENCES \"payment_attempts\" (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"reconciliations\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "table",
+          "reconciliations"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.reconciliations.reconciliations_payment_intent_id_idx_2dc6a9d2",
+    "label": "Create index reconciliations_payment_intent_id_idx_2dc6a9d2 on reconciliations",
+    "summary": "Creates index reconciliations_payment_intent_id_idx_2dc6a9d2 on reconciliations",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "index",
+        "name": "reconciliations_payment_intent_id_idx_2dc6a9d2",
+        "table": "reconciliations"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"reconciliations_payment_intent_id_idx_2dc6a9d2\" is missing",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "reconciliations_payment_intent_id_idx_2dc6a9d2"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"reconciliations_payment_intent_id_idx_2dc6a9d2\"",
+        "sql": "CREATE INDEX \"reconciliations_payment_intent_id_idx_2dc6a9d2\" ON \"reconciliations\" (\"payment_intent_id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"reconciliations_payment_intent_id_idx_2dc6a9d2\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "reconciliations_payment_intent_id_idx_2dc6a9d2"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.provider_outbox.provider_outbox_status_next_attempt_at_idx_139f8e47",
+    "label": "Create index provider_outbox_status_next_attempt_at_idx_139f8e47 on provider_outbox",
+    "summary": "Creates index provider_outbox_status_next_attempt_at_idx_139f8e47 on provider_outbox",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "index",
+        "name": "provider_outbox_status_next_attempt_at_idx_139f8e47",
+        "table": "provider_outbox"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"provider_outbox_status_next_attempt_at_idx_139f8e47\" is missing",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "provider_outbox_status_next_attempt_at_idx_139f8e47"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"provider_outbox_status_next_attempt_at_idx_139f8e47\"",
+        "sql": "CREATE INDEX \"provider_outbox_status_next_attempt_at_idx_139f8e47\" ON \"provider_outbox\" (\"status\", \"next_attempt_at\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"provider_outbox_status_next_attempt_at_idx_139f8e47\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "provider_outbox_status_next_attempt_at_idx_139f8e47"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.provider_outbox.provider_outbox_status_lease_expires_at_idx_7b34d2bd",
+    "label": "Create index provider_outbox_status_lease_expires_at_idx_7b34d2bd on provider_outbox",
+    "summary": "Creates index provider_outbox_status_lease_expires_at_idx_7b34d2bd on provider_outbox",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "index",
+        "name": "provider_outbox_status_lease_expires_at_idx_7b34d2bd",
+        "table": "provider_outbox"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"provider_outbox_status_lease_expires_at_idx_7b34d2bd\" is missing",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "provider_outbox_status_lease_expires_at_idx_7b34d2bd"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"provider_outbox_status_lease_expires_at_idx_7b34d2bd\"",
+        "sql": "CREATE INDEX \"provider_outbox_status_lease_expires_at_idx_7b34d2bd\" ON \"provider_outbox\" (\"status\", \"lease_expires_at\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"provider_outbox_status_lease_expires_at_idx_7b34d2bd\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "provider_outbox_status_lease_expires_at_idx_7b34d2bd"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "trigger.reconciliation_identity_fixed",
+    "label": "Create reconciliation_identity_fixed",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create reconciliation_identity_fixed",
+        "sql": "CREATE TRIGGER reconciliation_identity_fixed BEFORE UPDATE ON reconciliations WHEN NEW.id IS NOT OLD.id OR NEW.payment_intent_id IS NOT OLD.payment_intent_id OR NEW.payment_attempt_id IS NOT OLD.payment_attempt_id OR NEW.created_at IS NOT OLD.created_at BEGIN SELECT RAISE(ABORT, 'reconciliation_identity_fixed'); END",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify reconciliation_identity_fixed",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = 'trigger' AND name = ?",
+        "params": [
+          "reconciliation_identity_fixed"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "trigger.reconciliation_attempt_matches",
+    "label": "Create reconciliation_attempt_matches",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create reconciliation_attempt_matches",
+        "sql": "CREATE TRIGGER reconciliation_attempt_matches BEFORE INSERT ON reconciliations WHEN NEW.status <> 'REQUIRED' OR NOT EXISTS (SELECT 1 FROM payment_attempts a JOIN payment_intents p ON p.id = a.payment_intent_id WHERE a.id = NEW.payment_attempt_id AND a.payment_intent_id = NEW.payment_intent_id AND a.status = 'UNKNOWN' AND p.status = 'UNKNOWN') BEGIN SELECT RAISE(ABORT, 'reconciliation_attempt_matches'); END",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify reconciliation_attempt_matches",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = 'trigger' AND name = ?",
+        "params": [
+          "reconciliation_attempt_matches"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "trigger.reconciliation_state_insert",
+    "label": "Create reconciliation_state_insert",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create reconciliation_state_insert",
+        "sql": "CREATE TRIGGER reconciliation_state_insert BEFORE INSERT ON reconciliations WHEN NEW.status NOT IN ('REQUIRED', 'IN_PROGRESS', 'RESOLVED') OR\n  (NEW.status = 'RESOLVED' AND (NEW.resolution IS NULL OR NEW.resolution NOT IN ('SUCCEEDED', 'FAILED') OR NEW.resolved_at IS NULL OR NEW.resolved_by IS NULL OR NEW.evidence_reference IS NULL OR NEW.evidence IS NULL OR NOT json_valid(NEW.evidence))) OR\n  (NEW.status <> 'RESOLVED' AND (NEW.resolution IS NOT NULL OR NEW.resolved_at IS NOT NULL OR NEW.resolved_by IS NOT NULL OR NEW.evidence_reference IS NOT NULL OR NEW.evidence IS NOT NULL)) OR\n  (NEW.status = 'REQUIRED' AND (NEW.started_at IS NOT NULL OR NEW.started_by IS NOT NULL)) OR\n  (NEW.status = 'IN_PROGRESS' AND (NEW.started_at IS NULL OR NEW.started_by IS NULL)) BEGIN SELECT RAISE(ABORT, 'reconciliation_state_insert'); END",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify reconciliation_state_insert",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = 'trigger' AND name = ?",
+        "params": [
+          "reconciliation_state_insert"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "trigger.reconciliation_state_update",
+    "label": "Create reconciliation_state_update",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create reconciliation_state_update",
+        "sql": "CREATE TRIGGER reconciliation_state_update BEFORE UPDATE ON reconciliations WHEN NEW.status NOT IN ('REQUIRED', 'IN_PROGRESS', 'RESOLVED') OR\n  (NEW.status = 'RESOLVED' AND (NEW.resolution IS NULL OR NEW.resolution NOT IN ('SUCCEEDED', 'FAILED') OR NEW.resolved_at IS NULL OR NEW.resolved_by IS NULL OR NEW.evidence_reference IS NULL OR NEW.evidence IS NULL OR NOT json_valid(NEW.evidence))) OR\n  (NEW.status <> 'RESOLVED' AND (NEW.resolution IS NOT NULL OR NEW.resolved_at IS NOT NULL OR NEW.resolved_by IS NOT NULL OR NEW.evidence_reference IS NOT NULL OR NEW.evidence IS NOT NULL)) OR\n  (NEW.status = 'REQUIRED' AND (NEW.started_at IS NOT NULL OR NEW.started_by IS NOT NULL)) OR\n  (NEW.status = 'IN_PROGRESS' AND (NEW.started_at IS NULL OR NEW.started_by IS NULL)) BEGIN SELECT RAISE(ABORT, 'reconciliation_state_update'); END",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify reconciliation_state_update",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = 'trigger' AND name = ?",
+        "params": [
+          "reconciliation_state_update"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "trigger.reconciliation_transition",
+    "label": "Create reconciliation_transition",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create reconciliation_transition",
+        "sql": "CREATE TRIGGER reconciliation_transition BEFORE UPDATE ON reconciliations WHEN OLD.status = 'RESOLVED' OR (OLD.status = 'IN_PROGRESS' AND NEW.status = 'REQUIRED') BEGIN SELECT RAISE(ABORT, 'reconciliation_transition'); END",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify reconciliation_transition",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = 'trigger' AND name = ?",
+        "params": [
+          "reconciliation_transition"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "trigger.reconciliation_retained",
+    "label": "Create reconciliation_retained",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create reconciliation_retained",
+        "sql": "CREATE TRIGGER reconciliation_retained BEFORE DELETE ON reconciliations BEGIN SELECT RAISE(ABORT, 'reconciliation_retained'); END",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "Verify reconciliation_retained",
+        "sql": "SELECT COUNT(*) = 1 AS result FROM sqlite_master WHERE type = 'trigger' AND name = ?",
+        "params": [
+          "reconciliation_retained"
+        ]
+      }
+    ]
+  }
+]
